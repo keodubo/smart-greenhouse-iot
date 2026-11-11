@@ -8,6 +8,8 @@ Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR 
 
 Seguí **[el paso a paso en español](display-guide.md)**: clonar en la Raspberry, probar el display, importar el flow y configurar MQTT/exec.
 
+Cuando esté preparado, usá **[la guía para publicar desde la terminal a HiveMQ](mqtt-broker-guide.md)**, como en la práctica, y mostrar el dato en los LEDs.
+
 ```text
 HiveMQ → mqtt in → validar → delay → exec → Python → Sense HAT físico
 ```
