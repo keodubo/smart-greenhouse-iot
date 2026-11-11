@@ -4,6 +4,18 @@ Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR 
 
 **Preparado para probar en el laboratorio. El funcionamiento físico todavía no está verificado.**
 
+## Recibir temperatura de HiveMQ y mostrarla en los LEDs
+
+Seguí **[el paso a paso en español](display-guide.md)**: clonar en la Raspberry, probar el display, importar el flow y configurar MQTT/exec.
+
+```text
+HiveMQ → mqtt in → validar → delay → exec → Python → Sense HAT físico
+```
+
+- [Flow importable para el display](node-red/mqtt-display-flow.json).
+- [Programa Python que muestra el dato recibido](raspberry-pi/mostrar-mqtt.py).
+- Este flow es independiente de la lámpara. Configurá el topic real y la ruta de Python antes de habilitarlo.
+
 ## Empezar con Node-RED en la Raspberry
 
 1. En el navegador de la **Raspberry**, abrí [el flow JSON](https://raw.githubusercontent.com/keodubo/smart-greenhouse-iot/HEAD/node-red/greenhouse-flow.json) y guardalo con **Ctrl+S**, con nombre `greenhouse-flow.json`. Si se descarga directamente, usá ese archivo.

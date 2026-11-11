@@ -29,3 +29,16 @@ To compile without uploading, use Arduino IDE Verify or:
 ```bash
 arduino-cli compile --fqbn arduino:samd:mkrwifi1010 arduino/greenhouse-sensor
 ```
+
+## MQTT-to-display addition (11 November 2026)
+
+Added `mostrar-mqtt.py`, a separate importable MQTT/display flow, numeric-message validation and a Spanish clone/setup guide. The new Python program displays the received argument; it does not read a local sensor. Its `--preview` option does not access hardware.
+
+- Full suite after this addition: **17 JavaScript + 6 Python unit tests passed**.
+- Invalid/nonfinite/out-of-range data, retained readings and arbitrary command text are rejected before execution.
+- Python formatting tests and preview produced `23.5 C` from the supplied value `23.5`.
+- JavaScript syntax, generated JSON and local document links checked.
+- The new display path was self-reviewed; the earlier independent review applies to the original greenhouse implementation, not this addition.
+- No live HiveMQ connection or physical display execution was performed for this addition. The imported display tab stays disabled until the lab topic and script path are configured.
+
+Follow [display-guide.md](display-guide.md) for the physical end-to-end check. Avoid running another LED writer at the same time.
