@@ -1,0 +1,16 @@
+{
+  "broker": "localhost",
+  "port": 1883,
+  "prefix": "IIoT/CHANGE_ME",
+  "relayTopic": "",
+  "onPayload": "",
+  "offPayload": "",
+  "calibrationConfirmed": false,
+  "emptyCm": 20,
+  "fullCm": 5,
+  "onBelow": 18,
+  "offAt": 22,
+  "lowBelow": 20,
+  "lowClearAt": 25,
+  "staleMs": 15000
+}

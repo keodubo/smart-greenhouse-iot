@@ -1,0 +1,747 @@
+[
+  {
+    "id": "greenhouse-demo",
+    "type": "tab",
+    "label": "Greenhouse — OFFLINE DEMO",
+    "disabled": false,
+    "info": "No MQTT outputs. Click Reset demo, then sensor inputs. Relay output goes ONLY to Debug."
+  },
+  {
+    "id": "greenhouse-live",
+    "type": "tab",
+    "label": "Greenhouse — LIVE (enable in lab)",
+    "disabled": true,
+    "info": "Read setup-guide.md. Configure broker/prefix/SONOFF mapping, verify wiring, then enable. ARM requires a subsequent fresh temperature reading. STOP before disabling/deploying."
+  },
+  {
+    "id": "greenhouse-broker",
+    "type": "mqtt-broker",
+    "name": "Greenhouse lab broker",
+    "broker": "localhost",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "10",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "closeTopic": "",
+    "willTopic": ""
+  },
+  {
+    "id": "demo-controller",
+    "z": "greenhouse-demo",
+    "type": "function",
+    "name": "Demo controller",
+    "x": 600,
+    "y": 240,
+    "func": "// Generated from controller.js. Edit configuration via build-flow.js, then reimport.\nconst module = {exports:{}};\n'use strict';\nfunction step(state, event, now, config) {\n  const s = state ? JSON.parse(JSON.stringify(state)) : {\n    connected:false, armed:false, mode:'AUTO', requested:'OFF', lastSent:null,\n    temperatura:null, humedad:null, distancia:null, lowWater:null\n  };\n  const c = config;\n  const finite = x => typeof x === 'number' && Number.isFinite(x);\n  const topicOK = x => typeof x === 'string' && x.length > 0 && !/[+#\\u0000]/.test(x);\n  const prefixOK = topicOK(c.prefix) && !c.prefix.includes('CHANGE_ME') && !c.prefix.endsWith('/');\n  const mappingOK = prefixOK && topicOK(c.relayTopic) &&\n    !c.relayTopic.startsWith(c.prefix + '/') &&\n    typeof c.onPayload === 'string' && c.onPayload.length > 0 &&\n    typeof c.offPayload === 'string' && c.offPayload.length > 0 && c.onPayload !== c.offPayload;\n  const controlOK = finite(c.onBelow) && finite(c.offAt) && c.onBelow < c.offAt &&\n    finite(c.staleMs) && c.staleMs > 0;\n  const calibrationOK = c.calibrationConfirmed === true && finite(c.emptyCm) &&\n    finite(c.fullCm) && c.fullCm > 0 && c.emptyCm > c.fullCm &&\n    finite(c.lowBelow) && finite(c.lowClearAt) && c.lowBelow >= 0 &&\n    c.lowBelow < c.lowClearAt && c.lowClearAt <= 100;\n  let forceOff = false;\n  const reset = () => {\n    s.armed=false; s.mode='AUTO'; s.requested='OFF'; s.lastSent=null;\n    s.temperatura=null; s.humedad=null; s.distancia=null; s.lowWater=null;\n  };\n  if (event.kind === 'connection' && event.connected !== s.connected) {\n    reset(); s.connected = event.connected === true; forceOff = s.connected;\n  }\n  if (event.kind === 'arm') {\n    reset(); s.armed=s.connected && mappingOK && controlOK; forceOff=true;\n  }\n  if (event.kind === 'stop') { reset(); forceOff=true; }\n  if (!mappingOK || !controlOK) { s.armed=false; s.mode='AUTO'; s.requested='OFF'; }\n\n  const specs = {temperatura:['C',-40,100],humedad:['percent',0,100],distancia:['cm',2,400]};\n  if (specs[event.kind] && event.retain !== true) {\n    let p = event.payload;\n    if (typeof p === 'string') { try { p=JSON.parse(p); } catch (_) { p=null; } }\n    const [unit,min,max] = specs[event.kind];\n    s[event.kind] = p && p.valid === true && p.unit === unit && finite(p.value) &&\n      p.value >= min && p.value <= max ? {value:p.value,at:now} : null;\n  }\n  const fresh = key => s[key] !== null && now >= s[key].at && now-s[key].at < c.staleMs;\n  const temperatureOK = fresh('temperatura');\n  const humidityOK = fresh('humedad');\n  const waterOK = calibrationOK && fresh('distancia');\n  let level = {value:null,unit:'percent',valid:false};\n  if (waterOK) {\n    const percent = Math.max(0,Math.min(100,100*(c.emptyCm-s.distancia.value)/(c.emptyCm-c.fullCm)));\n    level={value:Math.round(percent*100)/100,unit:'percent',valid:true};\n    if (percent < c.lowBelow) s.lowWater=true;\n    else if (percent >= c.lowClearAt || s.lowWater === null) s.lowWater=false;\n  } else s.lowWater=null;\n\n  if (event.kind === 'manual' && event.retain !== true && s.armed && temperatureOK &&\n      ['ON','OFF','AUTO'].includes(event.payload)) s.mode=event.payload;\n  if (!s.armed || !s.connected || !temperatureOK || !controlOK) {\n    s.requested='OFF'; s.mode='AUTO';\n  } else if (s.mode !== 'AUTO') s.requested=s.mode;\n  else if (s.temperatura.value < c.onBelow) s.requested='ON';\n  else if (s.temperatura.value >= c.offAt) s.requested='OFF';\n\n  let relay=null;\n  if (mappingOK && s.connected && (forceOff || (s.armed && s.requested !== s.lastSent))) {\n    const requested=forceOff ? 'OFF' : s.requested;\n    relay={topic:c.relayTopic,payload:requested === 'ON' ? c.onPayload : c.offPayload,qos:0,retain:false};\n    s.lastSent=requested;\n  }\n  const faults=[];\n  if (!s.connected) faults.push('mqtt-disconnected');\n  if (!mappingOK) faults.push('relay-configuration');\n  if (!controlOK) faults.push('control-configuration');\n  if (!temperatureOK) faults.push('temperature-invalid-or-stale');\n  if (!humidityOK) faults.push('humidity-invalid-or-stale');\n  if (!calibrationOK) faults.push('water-calibration-unconfirmed');\n  if (!waterOK) faults.push('water-invalid-or-stale');\n  return {state:s, relay, level, status:{mode:s.mode,armed:s.armed,connected:s.connected,\n    requested:s.requested,actual:'UNKNOWN',temperature:temperatureOK?s.temperatura.value:null,\n    humidity:humidityOK?s.humedad.value:null,level:level.value,lowWater:s.lowWater,faults}};\n}\nmodule.exports = {step};\n\nconst config={\"broker\":\"localhost\",\"port\":1883,\"prefix\":\"IIoT/offline-demo\",\"relayTopic\":\"offline-demo/relay\",\"onPayload\":\"ON\",\"offPayload\":\"OFF\",\"calibrationConfirmed\":true,\"emptyCm\":20,\"fullCm\":5,\"onBelow\":18,\"offAt\":22,\"lowBelow\":20,\"lowClearAt\":25,\"staleMs\":15000};\nconst demo=true;\nlet state=context.get('greenhouse');\nlet event;\nif (demo && msg.kind === 'reset-demo') {\n  state=module.exports.step(undefined,{kind:'connection',connected:true},Date.now(),config).state;\n  event={kind:'arm'};\n} else if (msg.status) {\n  event={kind:'connection',connected:msg.status.fill === 'green'};\n} else if (msg.kind) {\n  event=msg;\n} else {\n  const prefix=config.prefix+'/';\n  if (typeof msg.topic !== 'string' || !msg.topic.startsWith(prefix)) return null;\n  const kind=msg.topic.slice(prefix.length);\n  if (!['temperatura','humedad','distancia','manual'].includes(kind)) return null;\n  event={kind,payload:msg.payload,retain:msg.retain};\n}\nconst result=module.exports.step(state,event,Date.now(),config);\ncontext.set('greenhouse',result.state);\nconst status={...result.status,simulation:demo};\nnode.status({fill:status.armed?'green':'yellow',shape:status.armed?'dot':'ring',text:status.mode+' / requested '+status.requested+' / actual UNKNOWN'});\nconst telemetry=(!demo && status.connected) ? [\n  {topic:config.prefix+'/nivel',payload:JSON.stringify(result.level),qos:0,retain:false},\n  {topic:config.prefix+'/estado',payload:JSON.stringify(status),qos:0,retain:false}\n] : null;\nreturn [result.relay,telemetry,{payload:status}];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "context.set('greenhouse', undefined);",
+    "finalize": "",
+    "libs": [],
+    "outputLabels": [
+      "Relay request",
+      "Level + status MQTT",
+      "Readable status"
+    ],
+    "wires": [
+      [
+        "greenhouse-demo-relay"
+      ],
+      [],
+      [
+        "greenhouse-demo-status"
+      ]
+    ]
+  },
+  {
+    "id": "greenhouse-demo-relay",
+    "z": "greenhouse-demo",
+    "type": "debug",
+    "name": "SIMULATED relay request",
+    "x": 960,
+    "y": 180,
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "wires": []
+  },
+  {
+    "id": "greenhouse-demo-status",
+    "z": "greenhouse-demo",
+    "type": "debug",
+    "name": "SIMULATED full status",
+    "x": 960,
+    "y": 300,
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "wires": []
+  },
+  {
+    "id": "demo-input-0",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Reset demo",
+    "x": 190,
+    "y": 60,
+    "props": [
+      {
+        "p": "kind",
+        "v": "reset-demo",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-1",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Temperature 17 C",
+    "x": 190,
+    "y": 105,
+    "props": [
+      {
+        "p": "kind",
+        "v": "temperatura",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":17,\"unit\":\"C\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-2",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Temperature 20 C",
+    "x": 190,
+    "y": 150,
+    "props": [
+      {
+        "p": "kind",
+        "v": "temperatura",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":20,\"unit\":\"C\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-3",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Temperature 22 C",
+    "x": 190,
+    "y": 195,
+    "props": [
+      {
+        "p": "kind",
+        "v": "temperatura",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":22,\"unit\":\"C\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-4",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Invalid temperature",
+    "x": 190,
+    "y": 240,
+    "props": [
+      {
+        "p": "kind",
+        "v": "temperatura",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":null,\"unit\":\"C\",\"valid\":false}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-5",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Water 19%",
+    "x": 190,
+    "y": 285,
+    "props": [
+      {
+        "p": "kind",
+        "v": "distancia",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":17.15,\"unit\":\"cm\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-6",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Water 22%",
+    "x": 190,
+    "y": 330,
+    "props": [
+      {
+        "p": "kind",
+        "v": "distancia",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":16.7,\"unit\":\"cm\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-7",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Water 25%",
+    "x": 190,
+    "y": 375,
+    "props": [
+      {
+        "p": "kind",
+        "v": "distancia",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":16.25,\"unit\":\"cm\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-8",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Humidity 55%",
+    "x": 190,
+    "y": 420,
+    "props": [
+      {
+        "p": "kind",
+        "v": "humedad",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "{\"value\":55,\"unit\":\"percent\",\"valid\":true}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-9",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Manual ON",
+    "x": 190,
+    "y": 465,
+    "props": [
+      {
+        "p": "kind",
+        "v": "manual",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "ON",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-10",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Manual OFF",
+    "x": 190,
+    "y": 510,
+    "props": [
+      {
+        "p": "kind",
+        "v": "manual",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "OFF",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-input-11",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "AUTO",
+    "x": 190,
+    "y": 555,
+    "props": [
+      {
+        "p": "kind",
+        "v": "manual",
+        "vt": "str"
+      },
+      {
+        "p": "payload",
+        "v": "AUTO",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-tick",
+    "z": "greenhouse-demo",
+    "type": "inject",
+    "name": "Freshness check (1 s)",
+    "x": 600,
+    "y": 440,
+    "props": [
+      {
+        "p": "kind",
+        "v": "tick",
+        "vt": "str"
+      }
+    ],
+    "repeat": "1",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "demo-controller"
+      ]
+    ]
+  },
+  {
+    "id": "demo-note",
+    "z": "greenhouse-demo",
+    "type": "comment",
+    "name": "Offline only — no hardware commands",
+    "x": 650,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "live-controller",
+    "z": "greenhouse-live",
+    "type": "function",
+    "name": "Live controller",
+    "x": 600,
+    "y": 240,
+    "func": "// Generated from controller.js. Edit configuration via build-flow.js, then reimport.\nconst module = {exports:{}};\n'use strict';\nfunction step(state, event, now, config) {\n  const s = state ? JSON.parse(JSON.stringify(state)) : {\n    connected:false, armed:false, mode:'AUTO', requested:'OFF', lastSent:null,\n    temperatura:null, humedad:null, distancia:null, lowWater:null\n  };\n  const c = config;\n  const finite = x => typeof x === 'number' && Number.isFinite(x);\n  const topicOK = x => typeof x === 'string' && x.length > 0 && !/[+#\\u0000]/.test(x);\n  const prefixOK = topicOK(c.prefix) && !c.prefix.includes('CHANGE_ME') && !c.prefix.endsWith('/');\n  const mappingOK = prefixOK && topicOK(c.relayTopic) &&\n    !c.relayTopic.startsWith(c.prefix + '/') &&\n    typeof c.onPayload === 'string' && c.onPayload.length > 0 &&\n    typeof c.offPayload === 'string' && c.offPayload.length > 0 && c.onPayload !== c.offPayload;\n  const controlOK = finite(c.onBelow) && finite(c.offAt) && c.onBelow < c.offAt &&\n    finite(c.staleMs) && c.staleMs > 0;\n  const calibrationOK = c.calibrationConfirmed === true && finite(c.emptyCm) &&\n    finite(c.fullCm) && c.fullCm > 0 && c.emptyCm > c.fullCm &&\n    finite(c.lowBelow) && finite(c.lowClearAt) && c.lowBelow >= 0 &&\n    c.lowBelow < c.lowClearAt && c.lowClearAt <= 100;\n  let forceOff = false;\n  const reset = () => {\n    s.armed=false; s.mode='AUTO'; s.requested='OFF'; s.lastSent=null;\n    s.temperatura=null; s.humedad=null; s.distancia=null; s.lowWater=null;\n  };\n  if (event.kind === 'connection' && event.connected !== s.connected) {\n    reset(); s.connected = event.connected === true; forceOff = s.connected;\n  }\n  if (event.kind === 'arm') {\n    reset(); s.armed=s.connected && mappingOK && controlOK; forceOff=true;\n  }\n  if (event.kind === 'stop') { reset(); forceOff=true; }\n  if (!mappingOK || !controlOK) { s.armed=false; s.mode='AUTO'; s.requested='OFF'; }\n\n  const specs = {temperatura:['C',-40,100],humedad:['percent',0,100],distancia:['cm',2,400]};\n  if (specs[event.kind] && event.retain !== true) {\n    let p = event.payload;\n    if (typeof p === 'string') { try { p=JSON.parse(p); } catch (_) { p=null; } }\n    const [unit,min,max] = specs[event.kind];\n    s[event.kind] = p && p.valid === true && p.unit === unit && finite(p.value) &&\n      p.value >= min && p.value <= max ? {value:p.value,at:now} : null;\n  }\n  const fresh = key => s[key] !== null && now >= s[key].at && now-s[key].at < c.staleMs;\n  const temperatureOK = fresh('temperatura');\n  const humidityOK = fresh('humedad');\n  const waterOK = calibrationOK && fresh('distancia');\n  let level = {value:null,unit:'percent',valid:false};\n  if (waterOK) {\n    const percent = Math.max(0,Math.min(100,100*(c.emptyCm-s.distancia.value)/(c.emptyCm-c.fullCm)));\n    level={value:Math.round(percent*100)/100,unit:'percent',valid:true};\n    if (percent < c.lowBelow) s.lowWater=true;\n    else if (percent >= c.lowClearAt || s.lowWater === null) s.lowWater=false;\n  } else s.lowWater=null;\n\n  if (event.kind === 'manual' && event.retain !== true && s.armed && temperatureOK &&\n      ['ON','OFF','AUTO'].includes(event.payload)) s.mode=event.payload;\n  if (!s.armed || !s.connected || !temperatureOK || !controlOK) {\n    s.requested='OFF'; s.mode='AUTO';\n  } else if (s.mode !== 'AUTO') s.requested=s.mode;\n  else if (s.temperatura.value < c.onBelow) s.requested='ON';\n  else if (s.temperatura.value >= c.offAt) s.requested='OFF';\n\n  let relay=null;\n  if (mappingOK && s.connected && (forceOff || (s.armed && s.requested !== s.lastSent))) {\n    const requested=forceOff ? 'OFF' : s.requested;\n    relay={topic:c.relayTopic,payload:requested === 'ON' ? c.onPayload : c.offPayload,qos:0,retain:false};\n    s.lastSent=requested;\n  }\n  const faults=[];\n  if (!s.connected) faults.push('mqtt-disconnected');\n  if (!mappingOK) faults.push('relay-configuration');\n  if (!controlOK) faults.push('control-configuration');\n  if (!temperatureOK) faults.push('temperature-invalid-or-stale');\n  if (!humidityOK) faults.push('humidity-invalid-or-stale');\n  if (!calibrationOK) faults.push('water-calibration-unconfirmed');\n  if (!waterOK) faults.push('water-invalid-or-stale');\n  return {state:s, relay, level, status:{mode:s.mode,armed:s.armed,connected:s.connected,\n    requested:s.requested,actual:'UNKNOWN',temperature:temperatureOK?s.temperatura.value:null,\n    humidity:humidityOK?s.humedad.value:null,level:level.value,lowWater:s.lowWater,faults}};\n}\nmodule.exports = {step};\n\nconst config={\"broker\":\"localhost\",\"port\":1883,\"prefix\":\"IIoT/CHANGE_ME\",\"relayTopic\":\"\",\"onPayload\":\"\",\"offPayload\":\"\",\"calibrationConfirmed\":false,\"emptyCm\":20,\"fullCm\":5,\"onBelow\":18,\"offAt\":22,\"lowBelow\":20,\"lowClearAt\":25,\"staleMs\":15000};\nconst demo=false;\nlet state=context.get('greenhouse');\nlet event;\nif (demo && msg.kind === 'reset-demo') {\n  state=module.exports.step(undefined,{kind:'connection',connected:true},Date.now(),config).state;\n  event={kind:'arm'};\n} else if (msg.status) {\n  event={kind:'connection',connected:msg.status.fill === 'green'};\n} else if (msg.kind) {\n  event=msg;\n} else {\n  const prefix=config.prefix+'/';\n  if (typeof msg.topic !== 'string' || !msg.topic.startsWith(prefix)) return null;\n  const kind=msg.topic.slice(prefix.length);\n  if (!['temperatura','humedad','distancia','manual'].includes(kind)) return null;\n  event={kind,payload:msg.payload,retain:msg.retain};\n}\nconst result=module.exports.step(state,event,Date.now(),config);\ncontext.set('greenhouse',result.state);\nconst status={...result.status,simulation:demo};\nnode.status({fill:status.armed?'green':'yellow',shape:status.armed?'dot':'ring',text:status.mode+' / requested '+status.requested+' / actual UNKNOWN'});\nconst telemetry=(!demo && status.connected) ? [\n  {topic:config.prefix+'/nivel',payload:JSON.stringify(result.level),qos:0,retain:false},\n  {topic:config.prefix+'/estado',payload:JSON.stringify(status),qos:0,retain:false}\n] : null;\nreturn [result.relay,telemetry,{payload:status}];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "context.set('greenhouse', undefined);",
+    "finalize": "",
+    "libs": [],
+    "outputLabels": [
+      "Relay request",
+      "Level + status MQTT",
+      "Readable status"
+    ],
+    "wires": [
+      [
+        "greenhouse-live-relay"
+      ],
+      [
+        "greenhouse-live-telemetry"
+      ],
+      [
+        "greenhouse-live-status"
+      ]
+    ]
+  },
+  {
+    "id": "live-temperatura",
+    "z": "greenhouse-live",
+    "type": "mqtt in",
+    "name": "temperatura",
+    "x": 180,
+    "y": 80,
+    "topic": "IIoT/CHANGE_ME/temperatura",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "greenhouse-broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-humedad",
+    "z": "greenhouse-live",
+    "type": "mqtt in",
+    "name": "humedad",
+    "x": 180,
+    "y": 135,
+    "topic": "IIoT/CHANGE_ME/humedad",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "greenhouse-broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-distancia",
+    "z": "greenhouse-live",
+    "type": "mqtt in",
+    "name": "distancia",
+    "x": 180,
+    "y": 190,
+    "topic": "IIoT/CHANGE_ME/distancia",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "greenhouse-broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-manual",
+    "z": "greenhouse-live",
+    "type": "mqtt in",
+    "name": "manual",
+    "x": 180,
+    "y": 245,
+    "topic": "IIoT/CHANGE_ME/manual",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "greenhouse-broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-connection",
+    "z": "greenhouse-live",
+    "type": "status",
+    "name": "MQTT connection",
+    "x": 180,
+    "y": 330,
+    "scope": [
+      "live-temperatura"
+    ],
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-arm",
+    "z": "greenhouse-live",
+    "type": "inject",
+    "name": "ARM (then fresh sample)",
+    "x": 180,
+    "y": 400,
+    "props": [
+      {
+        "p": "kind",
+        "v": "arm",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-stop",
+    "z": "greenhouse-live",
+    "type": "inject",
+    "name": "STOP / DISARM",
+    "x": 180,
+    "y": 450,
+    "props": [
+      {
+        "p": "kind",
+        "v": "stop",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "live-tick",
+    "z": "greenhouse-live",
+    "type": "inject",
+    "name": "Freshness check (1 s)",
+    "x": 180,
+    "y": 500,
+    "props": [
+      {
+        "p": "kind",
+        "v": "tick",
+        "vt": "str"
+      }
+    ],
+    "repeat": "1",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 1,
+    "topic": "",
+    "wires": [
+      [
+        "live-controller"
+      ]
+    ]
+  },
+  {
+    "id": "greenhouse-live-relay",
+    "z": "greenhouse-live",
+    "type": "mqtt out",
+    "name": "Verified SONOFF command",
+    "x": 970,
+    "y": 160,
+    "topic": "",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "greenhouse-broker",
+    "wires": []
+  },
+  {
+    "id": "greenhouse-live-telemetry",
+    "z": "greenhouse-live",
+    "type": "mqtt out",
+    "name": "Level / status",
+    "x": 970,
+    "y": 240,
+    "topic": "",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "greenhouse-broker",
+    "wires": []
+  },
+  {
+    "id": "greenhouse-live-status",
+    "z": "greenhouse-live",
+    "type": "debug",
+    "name": "LIVE full status",
+    "x": 970,
+    "y": 320,
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "wires": []
+  },
+  {
+    "id": "live-note",
+    "z": "greenhouse-live",
+    "type": "comment",
+    "name": "Disabled until configured — actual relay state is UNKNOWN",
+    "x": 660,
+    "y": 60,
+    "wires": []
+  }
+]

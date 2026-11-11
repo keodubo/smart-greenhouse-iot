@@ -1,0 +1,10 @@
+**/__pycache__/
+**/.venv/
+**/node_modules/
+**/wifi_connection_info.h
+**/*.local.json
+verification/build/
+verification/arduino-config.yaml
+verification/arduino-cache/
+verification/runtime/
+verification/node-red-user/

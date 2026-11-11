@@ -1,0 +1,6 @@
+{
+  "broker": "broker.hivemq.com",
+  "port": 1883,
+  "prefix": "IIoT/CHANGE_ME",
+  "client_id": "greenhouse-CHANGE_ME-pi"
+}
