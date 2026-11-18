@@ -10,6 +10,15 @@ import sys
 ROOT = Path(__file__).resolve().parent
 
 
+def resolve_config(config, sensor, topic):
+    result = dict(config) if config is not None else {'broker': 'broker.hivemq.com', 'port': 1883}
+    if sensor:
+        result['topic'] = 'IIoT/grupo99/' + sensor
+    elif topic is not None:
+        result['topic'] = topic
+    return result
+
+
 def validate_config(config, mode):
     if not isinstance(config, dict):
         raise ValueError('La configuración debe ser un objeto JSON.')
@@ -34,16 +43,25 @@ def validate_config(config, mode):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, default=ROOT / 'config.local.json', help='archivo de configuración local')
-    parser.add_argument('--topic', help='usar otro topic solo para este comando')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--topic', help='usar otro topic solo para este comando')
+    selection.add_argument('--sensor', choices=['temperatura', 'humedad', 'nivel'],
+                           help='seleccionar un topic fijo del grupo 99')
     commands = parser.add_subparsers(dest='mode', required=True)
     commands.add_parser('sub', help='escuchar mensajes; salir con Ctrl+C')
     pub = commands.add_parser('pub', help='publicar un mensaje no retenido')
     pub.add_argument('mensaje', help='mensaje a enviar')
     args = parser.parse_args()
     try:
-        config = json.loads(args.config.read_text(encoding='utf-8'))
-        if args.topic is not None:
-            config['topic'] = args.topic
+        if args.config.exists():
+            config = json.loads(args.config.read_text(encoding='utf-8'))
+            if not isinstance(config, dict):
+                raise ValueError('La configuración debe ser un objeto JSON.')
+        else:
+            config = None
+            if args.config != ROOT / 'config.local.json':
+                raise ValueError('No se encuentra el archivo de configuración indicado.')
+        config = resolve_config(config, args.sensor, args.topic)
         validate_config(config, args.mode)
     except (OSError, ValueError, TypeError) as exc:
         parser.error(str(exc))

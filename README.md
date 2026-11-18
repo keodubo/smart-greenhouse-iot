@@ -6,7 +6,7 @@ Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR 
 
 ## Publicar y suscribirse desde la terminal
 
-Usá la [guía MQTT reutilizable](mqtt-lab/README.md) para guardar broker, puerto y topic en cada Raspberry, escuchar con `sub` y enviar mensajes con `pub`.
+Usá la [guía MQTT reutilizable](mqtt-lab/README.md) para publicar y escuchar temperatura, humedad y nivel en los topics `IIoT/grupo99/` sin volver a configurarlos en cada Raspberry.
 
 ## Recibir temperatura de HiveMQ y mostrarla en los LEDs
 
