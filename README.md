@@ -8,7 +8,7 @@ Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR 
 
 Usá la [guía MQTT reutilizable](mqtt-lab/README.md) para publicar y escuchar temperatura, humedad y nivel en los topics `IIoT/grupo99/` sin volver a configurarlos en cada Raspberry.
 
-## Recibir temperatura de HiveMQ y mostrarla en los LEDs
+## Mostrar temperatura y humedad de MQTT en los LEDs
 
 Para mostrar directamente las lecturas **locales reales** de temperatura y humedad del Sense HAT, sin MQTT ni Node-RED:
 

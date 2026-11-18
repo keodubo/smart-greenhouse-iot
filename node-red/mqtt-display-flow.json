@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "HiveMQ → Display Sense HAT",
     "disabled": true,
-    "info": "Leer display-guide.md. Configurar topic, broker y ruta en exec antes de habilitar. Solo muestra temperatura; no controla la lámpara."
+    "info": "Leer display-guide.md. Configurar la ruta en exec antes de habilitar. Muestra temperatura y humedad del grupo99."
   },
   {
     "id": "mqtt-display-broker",
@@ -27,7 +27,7 @@
     "id": "mqtt-display-note",
     "z": "mqtt-display-tab",
     "type": "comment",
-    "name": "Configurar topic + ruta Python; después habilitar pestaña",
+    "name": "Configurar ruta Python; después habilitar pestaña",
     "x": 370,
     "y": 60,
     "wires": []
@@ -37,7 +37,7 @@
     "z": "mqtt-display-tab",
     "type": "mqtt in",
     "name": "Temperatura desde HiveMQ",
-    "topic": "IIoT/CHANGE_ME/temperatura",
+    "topic": "IIoT/grupo99/temperatura",
     "qos": "0",
     "datatype": "utf8",
     "broker": "mqtt-display-broker",
@@ -55,42 +55,61 @@
     ]
   },
   {
-    "id": "mqtt-display-validate",
+    "id": "mqtt-display-humidity",
     "z": "mqtt-display-tab",
-    "type": "function",
-    "name": "Validar temperatura",
-    "func": "function toDisplayMessage(msg) {\n  if (msg.retain === true) return null;\n  let data = msg.payload;\n  if (typeof data === 'string') {\n    if (data.length > 1024) return null;\n    try { data = JSON.parse(data); } catch (_) { return null; }\n  }\n  const temperature = typeof data === 'number' ? data :\n    data && data.valid === true && data.unit === 'C' ? data.value : null;\n  if (typeof temperature !== 'number' || !Number.isFinite(temperature) ||\n      temperature < -40 || temperature > 100) return null;\n  // Only this numeric argument reaches exec; discard unrelated message fields.\n  return {payload: temperature.toFixed(1)};\n}\nconst result = toDisplayMessage(msg);\nif (!result) node.warn(\"Lectura inválida o retenida: no se muestra\");\nreturn result;",
-    "outputs": 1,
-    "noerr": 0,
-    "initialize": "",
-    "finalize": "",
-    "libs": [],
-    "x": 440,
-    "y": 160,
+    "type": "mqtt in",
+    "name": "Humedad desde HiveMQ",
+    "topic": "IIoT/grupo99/humedad",
+    "qos": "0",
+    "datatype": "utf8",
+    "broker": "mqtt-display-broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 180,
+    "y": 210,
     "wires": [
       [
-        "mqtt-display-rate"
+        "mqtt-display-validate",
+        "mqtt-display-raw"
       ]
     ]
   },
   {
-    "id": "mqtt-display-rate",
+    "id": "mqtt-display-tick",
     "z": "mqtt-display-tab",
-    "type": "delay",
-    "name": "Máximo una lectura cada 5 s",
-    "pauseType": "rate",
-    "timeout": "5",
-    "timeoutUnits": "seconds",
-    "rate": "1",
-    "nbRateUnits": "5",
-    "rateUnits": "second",
-    "randomFirst": "1",
-    "randomLast": "5",
-    "randomUnits": "seconds",
-    "drop": true,
-    "allowrate": false,
+    "type": "inject",
+    "name": "Actualizar LEDs cada 10 s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "10",
+    "once": false,
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 60,
+    "wires": [
+      [
+        "mqtt-display-validate"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt-display-validate",
+    "z": "mqtt-display-tab",
+    "type": "function",
+    "name": "Validar y agrupar lecturas",
+    "func": "function toDisplayMessage(msg) {\n  if (msg.retain === true) return null;\n  let data = msg.payload;\n  if (typeof data === 'string') {\n    if (data.length > 1024) return null;\n    try { data = JSON.parse(data); } catch (_) { return null; }\n  }\n  const humidity = msg.topic === \"IIoT/grupo99/humedad\";\n  const unit = humidity ? \"percent\" : \"C\";\n  const value = typeof data === 'number' ? data :\n    data && data.valid === true && data.unit === unit ? data.value : null;\n  if (typeof value !== 'number' || !Number.isFinite(value) ||\n      value < (humidity ? 0 : -40) || value > 100) return null;\n  // Only this numeric argument reaches exec; discard unrelated message fields.\n  return {payload: value.toFixed(1)};\n}\nconst readings = context.get('readings') || {};\nconst now = Date.now();\nif (msg.topic) {\n  const result = toDisplayMessage(msg);\n  if (result) {\n    const key = msg.topic === 'IIoT/grupo99/humedad' ? 'humidity' : 'temperature';\n    readings[key] = {value: result.payload, at: now};\n    context.set('readings', readings);\n    context.set('pending', true);\n  }\n  return null;\n}\nif (!context.get('pending')) return null;\ncontext.set('pending', false);\nconst fresh = key => readings[key] && now - readings[key].at < 15000 ? readings[key].value : '';\nconst temperature = fresh('temperature');\nconst humidity = fresh('humidity');\nif (!temperature && !humidity) return null;\nreturn {payload: [temperature, humidity && '--humidity ' + humidity].filter(Boolean).join(' ')};\n",
     "outputs": 1,
-    "x": 730,
+    "noerr": 0,
+    "initialize": "context.set('readings', {}); context.set('pending', false);",
+    "finalize": "",
+    "libs": [],
+    "x": 460,
     "y": 160,
     "wires": [
       [
@@ -107,7 +126,7 @@
     "addpay": "payload",
     "append": "",
     "useSpawn": "false",
-    "timer": "4",
+    "timer": "8",
     "winHide": false,
     "oldrc": false,
     "x": 1020,
