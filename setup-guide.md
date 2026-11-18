@@ -41,7 +41,7 @@ The offline tab has **no MQTT outputs**. Its “relay” output goes to Debug on
 
 ## 2. Agree configuration before the lab
 
-Choose one group topic prefix such as `IIoT/<your-unique-group>`, without angle brackets, wildcards or a trailing slash. Use exactly the same broker, port and prefix on all three programs. The relay may have a different broker configured already: confirm that it matches before proceeding.
+The default sensor prefix is `IIoT/grupo99`. Use the same prefix across all devices. Use exactly the same broker, port and prefix on all three programs. The relay may have a different broker configured already: confirm that it matches before proceeding.
 
 | Setting | Where to put it |
 | --- | --- |
@@ -59,7 +59,7 @@ cp -n raspberry-pi/pi-config.example.json raspberry-pi/pi-config.local.json
 cp -n node-red/flow-config.example.json node-red/flow-config.local.json
 ```
 
-Edit the copies. All `CHANGE_ME` fields must be replaced. The exported flow uses `localhost` as a placeholder; set its broker to the lab-confirmed host, such as the proposal's `broker.hivemq.com`, to match the other devices. Use different client IDs for Arduino and Pi; Node-RED generates its own.
+Edit the copies. Replace the remaining `CHANGE_ME` values for Wi-Fi and client IDs. The exported flow uses `localhost` as a placeholder; set its broker to the lab-confirmed host, such as the proposal's `broker.hivemq.com`, to match the other devices. Use different client IDs for Arduino and Pi; Node-RED generates its own.
 
 For the Node-RED config:
 

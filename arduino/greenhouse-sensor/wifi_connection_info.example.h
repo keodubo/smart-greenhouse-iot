@@ -4,5 +4,5 @@
 #define SECRET_PASS "CHANGE_ME"
 #define MQTT_HOST "broker.hivemq.com"
 #define MQTT_PORT 1883
-#define MQTT_PREFIX "IIoT/CHANGE_ME"
+#define MQTT_PREFIX "IIoT/grupo99"
 #define MQTT_CLIENT_ID "greenhouse-CHANGE_ME-arduino"

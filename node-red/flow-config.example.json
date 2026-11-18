@@ -1,7 +1,7 @@
 {
   "broker": "localhost",
   "port": 1883,
-  "prefix": "IIoT/CHANGE_ME",
+  "prefix": "IIoT/grupo99",
   "relayTopic": "",
   "onPayload": "",
   "offPayload": "",
