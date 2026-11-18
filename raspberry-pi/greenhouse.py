@@ -41,7 +41,8 @@ def validate_config(config):
     return config
 
 
-def run_hardware(config):
+def run_hardware(config, sensor=None):
+    telemetry_only = sensor is not None
     import paho.mqtt.client as mqtt
     from sense_hat import SenseHat
 
@@ -60,7 +61,8 @@ def run_hardware(config):
     def on_connect(c, userdata, flags, reason_code, properties):
         enqueue(None)
         if not reason_code.is_failure:
-            c.subscribe(prefix + '/estado', qos=0)
+            if not telemetry_only:
+                c.subscribe(prefix + '/estado', qos=0)
             print('MQTT connected.', flush=True)
         else:
             print('MQTT connection rejected.', flush=True)
@@ -96,7 +98,7 @@ def run_hardware(config):
                     latest_status = None
                 else:
                     received, latest_status = item
-            for event in sense.stick.get_events():
+            for event in (() if telemetry_only else sense.stick.get_events()):
                 command = joystick_command(event.direction, event.action)
                 if command and client.is_connected():
                     client.publish(prefix + '/manual', command, qos=0, retain=False)
@@ -104,6 +106,8 @@ def run_hardware(config):
                 last_sample = now
                 for suffix, unit, reader in [('temperatura', 'C', sense.get_temperature),
                                              ('humedad', 'percent', sense.get_humidity)]:
+                    if sensor not in (None, 'ambos', suffix):
+                        continue
                     try:
                         payload = measurement(reader(), unit)
                     except (OSError, RuntimeError):
@@ -111,10 +115,12 @@ def run_hardware(config):
                     if client.is_connected():
                         client.publish(prefix + '/' + suffix, json.dumps(payload, allow_nan=False), qos=0, retain=False)
                     print(suffix, json.dumps(payload), flush=True)
-            sense.set_pixels(status_pixels(latest_status if client.is_connected() else None, now - received))
+            if not telemetry_only:
+                sense.set_pixels(status_pixels(latest_status if client.is_connected() else None, now - received))
             time.sleep(0.1)
     finally:
-        sense.clear()
+        if not telemetry_only:
+            sense.clear()
         client.disconnect()
         client.loop_stop()
 
@@ -124,6 +130,8 @@ def main():
     parser.add_argument('--config', type=Path, default=Path(__file__).with_name('pi-config.local.json'))
     parser.add_argument('--check-config', action='store_true', help='Validate configuration without hardware/network access')
     parser.add_argument('--simulate', action='store_true', help='Print labelled example measurements offline')
+    parser.add_argument('--sensor', choices=['temperatura', 'humedad', 'ambos'],
+                        help='Publicar lecturas reales y dejar la matriz LED a Node-RED')
     parser.add_argument('--samples', type=int, default=3)
     args = parser.parse_args()
     if args.simulate:
@@ -133,15 +141,19 @@ def main():
         return
     try:
         config = validate_config(json.loads(args.config.read_text()))
+    except FileNotFoundError:
+        if args.sensor is None or args.config != Path(__file__).with_name('pi-config.local.json'):
+            parser.error('Falta el archivo de configuración local.')
+        config = {'broker': 'broker.hivemq.com', 'port': 1883, 'prefix': 'IIoT/grupo99', 'client_id': ''}
     except (OSError, ValueError, TypeError, AttributeError):
         parser.error('Invalid/missing local configuration. Copy pi-config.example.json and fill in the documented fields.')
     if args.check_config:
         print('Configuration valid. No hardware/network access performed.')
         return
     try:
-        run_hardware(config)
+        run_hardware(config, args.sensor)
     except KeyboardInterrupt:
-        print('Publisher stopped. Use Node-RED STOP and verify the bulb is OFF.')
+        print('Publicación detenida.' if args.sensor else 'Publisher stopped. Use Node-RED STOP and verify the bulb is OFF.')
 
 
 if __name__ == '__main__':

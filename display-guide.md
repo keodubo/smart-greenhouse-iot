@@ -115,6 +115,24 @@ python3 mqtt-lab/mqtt-lab.py --sensor temperatura pub '23.5'
 python3 mqtt-lab/mqtt-lab.py --sensor humedad pub '55'
 ```
 
+## Publicar lecturas reales del Sense HAT
+
+Con el flow del display desplegado, prepará el entorno de Python desde la carpeta del repositorio:
+
+```bash
+python3 -m venv --system-site-packages raspberry-pi/.venv
+raspberry-pi/.venv/bin/python -m pip install -r raspberry-pi/requirements.txt
+```
+
+Probá cada sensor por separado. Detené el primer comando con **Ctrl+C** antes de ejecutar el siguiente:
+
+```bash
+raspberry-pi/.venv/bin/python raspberry-pi/greenhouse.py --sensor temperatura
+raspberry-pi/.venv/bin/python raspberry-pi/greenhouse.py --sensor humedad
+```
+
+Para publicar ambas lecturas cada cinco segundos, usá `--sensor ambos`. Node-RED queda a cargo de la matriz. Si existe `raspberry-pi/pi-config.local.json`, el publicador usa su broker y prefijo. En un clon nuevo usa `broker.hivemq.com:1883` y `IIoT/grupo99`.
+
 ## Diagnóstico
 
 | Qué ocurre | Qué comprobar |
