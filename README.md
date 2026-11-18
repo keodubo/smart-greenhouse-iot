@@ -4,6 +4,10 @@ Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR 
 
 **Preparado para probar en el laboratorio. El funcionamiento físico todavía no está verificado.**
 
+## Publicar y suscribirse desde la terminal
+
+Usá la [guía MQTT reutilizable](mqtt-lab/README.md) para guardar broker, puerto y topic en cada Raspberry, escuchar con `sub` y enviar mensajes con `pub`.
+
 ## Recibir temperatura de HiveMQ y mostrarla en los LEDs
 
 Seguí **[el paso a paso en español](display-guide.md)**: clonar en la Raspberry, probar el display, importar el flow y configurar MQTT/exec.
