@@ -76,3 +76,46 @@ Dejá ese proceso corriendo mientras quieras ver las lecturas. Publica cada cinc
 Si el comando directo ilumina los LEDs pero MQTT no muestra lecturas, activá **Mensaje recibido (diagnóstico)** en el flow y pulsá **Deploy**. El panel **Debug** (ícono de insecto) muestra los datos recibidos y los mensajes de **Errores de Python**. Si aparece `Indicá temperatura o humedad`, revisá **Append msg.payload** y volvé a desplegar.
 
 Para más detalles, consultá la [guía del display](display-guide.md).
+
+## 6. Conectar el SONOFF 5 y controlar la lámpara con temperatura real
+
+Este paso usa el flow **Greenhouse — LIVE** junto con el display del paso 5. La Raspberry Pi 16 publica la temperatura del Sense HAT y el controlador de Node-RED decide cuándo enviar ON u OFF al SONOFF 5.
+
+### Confirmar y probar el relé
+
+- Confirmá con el laboratorio si **el SONOFF 5 usa MQTT**. Pedí el broker y el puerto, el topic exacto de comandos y los dos mensajes explícitos de encendido y apagado. El número de la etiqueta no identifica el topic. El valor `2` de la práctica alterna el estado.
+- Si el SONOFF usa **HTTP**, este flow requiere una adaptación. Un `ECONNREFUSED` en el puerto `8081` se diagnostica en el nodo **http request** del flow de la práctica HTTP. Confirmá la dirección del equipo asignado y probá primero **Get Device Info**.
+- Con el SONOFF y la lámpara ya montados por el laboratorio, probá el camino MQTT con dos nodos **Inject** conectados a un **MQTT out**. En cada Inject, poné el payload confirmado como **string**, sin repetición ni envío al iniciar. En MQTT out, cargá el broker, puerto y topic confirmados, con **Retain false**. Desplegá y probá **OFF → ON → OFF**, observando la lámpara en cada paso. Deshabilitá la pestaña de prueba y volvé a desplegar antes de activar el control automático.
+
+### Configurar el flow automático
+
+En la terminal de la Raspberry, desde el repositorio:
+
+```bash
+cd ~/smart-greenhouse-iot
+cp -n node-red/flow-config.example.json node-red/flow-config.local.json
+nano node-red/flow-config.local.json
+```
+
+| Campo | Qué poner |
+| --- | --- |
+| `broker` y `port` | Los que usa el SONOFF 5. Para este flow deben coincidir con los del publicador del Sense HAT. Si son distintos, hace falta configurar conexiones separadas. |
+| `prefix` | `IIoT/grupo99`, igual que el publicador. |
+| `relayTopic` | Topic confirmado del SONOFF 5. El controlador actual exige que esté fuera de `IIoT/grupo99/`. Si el topic asignado está dentro de ese prefijo, hay que adaptar el controlador antes de armarlo. |
+| `onPayload` y `offPayload` | Mensajes confirmados para los dos estados, entre comillas. |
+| `onBelow` y `offAt` | Umbrales en °C. Con `18` y `22`, la lámpara enciende por debajo de 18 °C y se apaga al llegar a 22 °C. Entre ambos conserva el estado anterior. |
+
+Guardá con **Ctrl+O**, Enter y **Ctrl+X**. Generá el flow con tu configuración:
+
+```bash
+node node-red/build-flow.js node-red/flow-config.local.json node-red/greenhouse-flow.local.json
+```
+
+1. En Node-RED, exportá una copia de los flows existentes. Si ya tenés otro controlador de la lámpara, pulsá **STOP / DISARM**, comprobá que se apague y deshabilitá ese controlador antes de activar el nuevo.
+2. Abrí **☰ → Import → select a file** e importá **`node-red/greenhouse-flow.local.json`**. Habilitá **Greenhouse — LIVE** y pulsá **Deploy**. Dejá vacía la casilla **Topic** de **Verified SONOFF command**: el controlador la completa con `relayTopic`.
+3. Dejá corriendo el publicador del paso 5 con `--sensor ambos`. En **Debug → LIVE full status**, confirmá que aparece una temperatura numérica real y que el MQTT figura conectado. El nivel del tanque puede quedar pendiente para esta prueba.
+4. Pulsá **ARM (then fresh sample)** y esperá la siguiente lectura, aproximadamente cinco segundos. Mirá el estado solicitado y observá físicamente la lámpara. `UNKNOWN` indica que el flow carece de confirmación del relé.
+5. Para probar ambos estados con la temperatura ambiente, podés ajustar temporalmente los umbrales. Por ejemplo, con una lectura estable de 21 °C, `onBelow: 22` y `offAt: 24` permiten probar el encendido. Antes de cambiar la configuración, pulsá **STOP / DISARM** y comprobá que se apague. Luego, con `onBelow: 18` y `offAt: 20`, la misma lectura queda por encima del umbral de apagado. Restaurá los valores acordados después de la prueba.
+6. Para terminar, pulsá **STOP / DISARM** y verificá que la lámpara quedó apagada antes de detener Node-RED. Si se pierde la conexión, el relé puede conservar su estado físico. Usá el procedimiento de apagado del laboratorio y volvé a armar el flow tras reconectar.
+
+Los archivos `*.local.json` quedan en la Raspberry. Si cambiás de equipo, completá allí la configuración del relé.
