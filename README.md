@@ -10,6 +10,14 @@ Usá la [guía MQTT reutilizable](mqtt-lab/README.md) para publicar y escuchar t
 
 ## Recibir temperatura de HiveMQ y mostrarla en los LEDs
 
+Para mostrar directamente las lecturas **locales reales** de temperatura y humedad del Sense HAT, sin MQTT ni Node-RED:
+
+```bash
+python3 raspberry-pi/mostrar-sensores.py
+```
+
+Los LEDs alternan `T ... C` y `H ... %`. Detené con Ctrl+C y no ejecutes simultáneamente otros programas que escriben en el Sense HAT. La temperatura puede estar afectada por el calor de la Raspberry; comparala con un termómetro.
+
 Seguí **[el paso a paso en español](display-guide.md)**: clonar en la Raspberry, probar el display, importar el flow y configurar MQTT/exec.
 
 Cuando esté preparado, usá **[la guía para publicar desde la terminal a HiveMQ](mqtt-broker-guide.md)**, como en la práctica, y mostrar el dato en los LEDs.
