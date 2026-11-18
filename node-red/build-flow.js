@@ -89,6 +89,27 @@ function buildFlow(config) {
   return nodes;
 }
 
+function buildManualFlow(config) {
+  const {step}=require('./controller');
+  if (!step(undefined,{kind:'connection',connected:true},0,config).relay) {
+    throw new Error('Completá el topic y los mensajes ON/OFF confirmados.');
+  }
+  const tab='greenhouse-manual';
+  const broker='greenhouse-manual-broker';
+  const output='greenhouse-manual-output';
+  return [
+    {id:tab,type:'tab',label:'SONOFF — Prueba manual',disabled:true},
+    {id:broker,type:'mqtt-broker',name:'Broker SONOFF',broker:config.broker,port:String(config.port),
+      clientid:'',autoConnect:true,usetls:false,protocolVersion:'4',keepalive:'10',cleansession:true},
+    ...[['off','APAGAR',config.offPayload],['on','ENCENDER',config.onPayload]].map(([id,name,payload],i)=>({
+      id:tab+'-'+id,z:tab,type:'inject',name,props:[{p:'payload',v:payload,vt:'str'}],
+      payload,payloadType:'str',repeat:'',crontab:'',once:false,x:200,y:100+i*80,wires:[[output]]
+    })),
+    {id:output,z:tab,type:'mqtt out',name:'Comando SONOFF',topic:config.relayTopic,
+      qos:'0',retain:'false',broker,x:470,y:140,wires:[]}
+  ];
+}
+
 if (require.main===module) {
   const input=path.resolve(process.argv[2] || path.join(__dirname,'flow-config.example.json'));
   const output=path.resolve(process.argv[3] || path.join(__dirname,'greenhouse-flow.json'));
@@ -97,7 +118,7 @@ if (require.main===module) {
       typeof config.prefix!=='string' || !config.prefix || /[+#\u0000]/.test(config.prefix) || config.prefix.endsWith('/')) {
     throw new Error('Invalid broker, port or topic prefix. See flow-config.example.json.');
   }
-  fs.writeFileSync(output,JSON.stringify(buildFlow(config),null,2)+'\n');
-  console.log('Wrote importable flow (live tab disabled): '+output);
+  fs.writeFileSync(output,JSON.stringify(process.argv[4] === '--manual' ? buildManualFlow(config) : buildFlow(config),null,2)+'\n');
+  console.log('Wrote importable flow (relay tab disabled): '+output);
 }
 module.exports={functionBody,buildFlow};

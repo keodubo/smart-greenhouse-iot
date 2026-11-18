@@ -85,8 +85,6 @@ Este paso usa el flow **Greenhouse — LIVE** junto con el display del paso 5. L
 
 - Confirmá con el laboratorio si **el SONOFF 5 usa MQTT**. Pedí el broker y el puerto, el topic exacto de comandos y los dos mensajes explícitos de encendido y apagado. El número de la etiqueta no identifica el topic. El valor `2` de la práctica alterna el estado.
 - Si el SONOFF usa **HTTP**, este flow requiere una adaptación. Un `ECONNREFUSED` en el puerto `8081` se diagnostica en el nodo **http request** del flow de la práctica HTTP. Confirmá la dirección del equipo asignado y probá primero **Get Device Info**.
-- Con el SONOFF y la lámpara ya montados por el laboratorio, probá el camino MQTT con dos nodos **Inject** conectados a un **MQTT out**. En cada Inject, poné el payload confirmado como **string**, sin repetición ni envío al iniciar. En MQTT out, cargá el broker, puerto y topic confirmados, con **Retain false**. Desplegá y probá **OFF → ON → OFF**, observando la lámpara en cada paso. Deshabilitá la pestaña de prueba y volvé a desplegar antes de activar el control automático.
-
 ### Configurar el flow automático
 
 En la terminal de la Raspberry, desde el repositorio:
@@ -99,17 +97,26 @@ nano node-red/flow-config.local.json
 
 | Campo | Qué poner |
 | --- | --- |
-| `broker` y `port` | Los que usa el SONOFF 5. Para este flow deben coincidir con los del publicador del Sense HAT. Si son distintos, hace falta configurar conexiones separadas. |
+| `broker` y `port` | Para este equipo, `broker.hivemq.com` y puerto `1883`. Para este flow deben coincidir con los del publicador del Sense HAT. Si son distintos, hace falta configurar conexiones separadas. |
 | `prefix` | `IIoT/grupo99`, igual que el publicador. |
 | `relayTopic` | Topic confirmado del SONOFF 5. El controlador actual exige que esté fuera de `IIoT/grupo99/`. Si el topic asignado está dentro de ese prefijo, hay que adaptar el controlador antes de armarlo. |
 | `onPayload` y `offPayload` | Mensajes confirmados para los dos estados, entre comillas. |
 | `onBelow` y `offAt` | Umbrales en °C. Con `18` y `22`, la lámpara enciende por debajo de 18 °C y se apaga al llegar a 22 °C. Entre ambos conserva el estado anterior. |
 
-Guardá con **Ctrl+O**, Enter y **Ctrl+X**. Generá el flow con tu configuración:
+Guardá con **Ctrl+O**, Enter y **Ctrl+X**. Generá ambos flows con tu configuración:
 
 ```bash
+node node-red/build-flow.js node-red/flow-config.local.json node-red/sonoff-manual.local.json --manual
 node node-red/build-flow.js node-red/flow-config.local.json node-red/greenhouse-flow.local.json
 ```
+
+### Probar el relé
+
+1. Con la lámpara montada y el controlador automático deshabilitado, importá `node-red/sonoff-manual.local.json` en Node-RED.
+2. Habilitá **SONOFF — Prueba manual**, pulsá **Deploy** y esperá a que **Comando SONOFF** muestre **connected**.
+3. Pulsá **APAGAR → ENCENDER → APAGAR**, mirando la lámpara. Luego deshabilitá la pestaña manual y pulsá **Deploy**.
+
+### Activar el control automático
 
 1. En Node-RED, exportá una copia de los flows existentes. Si ya tenés otro controlador de la lámpara, pulsá **STOP / DISARM**, comprobá que se apague y deshabilitá ese controlador antes de activar el nuevo.
 2. Abrí **☰ → Import → select a file** e importá **`node-red/greenhouse-flow.local.json`**. Habilitá **Greenhouse — LIVE** y pulsá **Deploy**. Dejá vacía la casilla **Topic** de **Verified SONOFF command**: el controlador la completa con `relayTopic`.
