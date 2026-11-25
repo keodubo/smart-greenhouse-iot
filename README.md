@@ -1,110 +1,14 @@
-# Smart Greenhouse IoT
+# Invernadero · Grupo 99
 
-**Demo actual con los tres sensores del Arduino:** [importar dashboard, matriz y control del SONOFF 9](demo-arduino.md).
+El grupo confirmó en el laboratorio el 25 de noviembre de 2026 que funciona la demo con el Arduino como fuente de temperatura, humedad y nivel, la Raspberry 16 con Node-RED y el SONOFF 9 por MQTT.
 
-**Montaje alternativo con sensores del Sense HAT:** [importar el nuevo flow de una pestaña](demo-pi16.md).
+**Flow para importar:** [demo-arduino-grupo99.json](node-red/demo-arduino-grupo99.json). Si la demo ya está desplegada, basta con actualizar el repositorio. Para preparar otra Raspberry, seguí el [manual de la demo](demo-arduino.md).
 
-**Para la demo integrada del grupo 99, seguí [Demo del invernadero desde la Raspberry](demo.md).** El generador configura el SONOFF asignado y la ruta del display en un solo archivo importable.
-
-Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR WiFi 1010 + sensor de inmersión calibrado y una lámpara controlada por SONOFF mediante MQTT y Node-RED.
-
-**Preparado para probar en el laboratorio. El funcionamiento físico todavía no está verificado.**
-
-## Publicar y suscribirse desde la terminal
-
-Usá la [guía MQTT reutilizable](mqtt-lab/README.md) para publicar y escuchar temperatura, humedad y nivel en los topics `IIoT/grupo99/` sin volver a configurarlos en cada Raspberry.
-
-## Mostrar temperatura y humedad de MQTT en los LEDs
-
-Para mostrar directamente las lecturas **locales reales** de temperatura y humedad del Sense HAT, sin MQTT ni Node-RED:
-
-```bash
-python3 raspberry-pi/mostrar-sensores.py
-```
-
-Los LEDs alternan `T ... C` y `H ... %`. Detené con Ctrl+C y no ejecutes simultáneamente otros programas que escriben en el Sense HAT. La temperatura puede estar afectada por el calor de la Raspberry; comparala con un termómetro.
-
-Seguí **[el paso a paso en español](display-guide.md)**: clonar en la Raspberry, probar el display, importar el flow y configurar MQTT/exec.
-
-Cuando esté preparado, usá **[la guía para publicar desde la terminal a HiveMQ](mqtt-broker-guide.md)**, como en la práctica, y mostrar el dato en los LEDs.
-
-```text
-HiveMQ → mqtt in → validar → delay → exec → Python → Sense HAT físico
-```
-
-- [Flow importable para el display](node-red/mqtt-display-flow.json).
-- [Programa Python que muestra el dato recibido](raspberry-pi/mostrar-mqtt.py).
-- Este flow es independiente de la lámpara. Configurá el topic real y la ruta de Python antes de habilitarlo.
-
-## Empezar con Node-RED en la Raspberry
-
-1. En el navegador de la **Raspberry**, abrí [el flow JSON](https://raw.githubusercontent.com/keodubo/smart-greenhouse-iot/HEAD/node-red/greenhouse-flow.json) y guardalo con **Ctrl+S**, con nombre `greenhouse-flow.json`. Si se descarga directamente, usá ese archivo.
-2. Abrí una terminal en la Raspberry y ejecutá:
-
-   ```bash
-   node-red
-   ```
-
-3. Dejá la terminal abierta y entrá desde el navegador de la Raspberry a [http://localhost:1880](http://localhost:1880), o a la dirección que muestre la terminal. Si Node-RED ya está iniciado, abrí su editor sin iniciar otra instancia.
-4. Exportá una copia de los flows existentes antes de cambiar nada. En Node-RED: **☰ → Import → select a file** y elegí `greenhouse-flow.json`.
-5. Mantené deshabilitada la pestaña **Greenhouse — LIVE (enable in lab)**. En **OFFLINE DEMO**, desplegá el flow, abrí Debug y pulsá **Reset demo**.
-6. Pulsá las entradas **17 °C → 20 °C → 22 °C**, sin pausas de 15 segundos. En Debug, `requested` debe mostrar **ON → ON → OFF**. Es una simulación y no manda comandos a la lámpara.
-
-Si el navegador está en una computadora Windows y Node-RED corre en otra Raspberry, `localhost` apuntaría a Windows: usá la dirección de la Raspberry indicada por el laboratorio.
-
-## Para controlar la lámpara real
-
-Primero confirmá con el laboratorio:
-
-- El SONOFF utiliza **MQTT**; algunos modelos de otras prácticas usan HTTP.
-- Broker y puerto configurados en ese SONOFF.
-- Topic exacto de comandos y mensajes exactos para **ON** y **OFF**. No se presuponen `1`/`0` y no se utiliza un comando de alternancia.
-- Lámpara/SONOFF correctamente montados por el laboratorio.
-
-Luego seguí la [guía completa de configuración y puesta en marcha](setup-guide.md). El flow integrado necesita una lectura nueva de temperatura después de **ARM**; no basta con pulsar un botón ON sin sensor. Para probar solo la lógica, usá la pestaña offline.
-
-El estado físico del relé aparece como **UNKNOWN** porque todavía no se conoce un protocolo de confirmación. Observá la lámpara. Al perder conexión el controlador se desarma; después de reconectar hay que volver a pulsar **ARM**. Antes de reiniciar/desplegar/deshabilitar el flow, pulsá **STOP / DISARM** y comprobá que la lámpara se apagó.
-
-## Descargar todo
-
-Sin iniciar sesión en GitHub: **Code → Download ZIP**, extraer en una carpeta nueva.
-
-O desde la terminal de la Raspberry, si tiene Git:
-
-```bash
-git clone https://github.com/keodubo/smart-greenhouse-iot.git
-cd smart-greenhouse-iot
-```
-
-No se instala ni ejecuta automáticamente ningún programa al descargar el repositorio.
-
-## Archivos
-
-| Carpeta/archivo | Contenido |
+| Componente | Configuración probada |
 | --- | --- |
-| [`node-red/greenhouse-flow.json`](node-red/greenhouse-flow.json) | Flow importable: demo offline + pestaña live deshabilitada |
-| [`node-red/flow-config.example.json`](node-red/flow-config.example.json) | Configuración de ejemplo sin credenciales ni datos del dispositivo |
-| [`arduino/greenhouse-sensor/`](arduino/greenhouse-sensor/) | Sketch del sensor ultrasónico y plantilla Wi-Fi |
-| [`raspberry-pi/`](raspberry-pi/) | Temperatura/humedad, joystick, LEDs y dependencias |
-| [`setup-guide.md`](setup-guide.md) | Configuración, cableado, calibración, arranque y parada (inglés) |
-| [`hardware-checklist.md`](hardware-checklist.md) | Registro de resultados pendientes del laboratorio |
-| [`verification.md`](verification.md) | Verificación local y limitaciones |
-| [`tests/`](tests/) | Pruebas unitarias del comportamiento |
+| Broker | `broker.hivemq.com:1883` |
+| Sensores | El firmware del Arduino del grupo publica en `IIoT/grupo99/temperatura`, `IIoT/grupo99/humedad` e `IIoT/grupo99/nivel` |
+| Raspberry 16 | Node-RED recibe los datos y sirve el [dashboard local](http://127.0.0.1:1880/ui). El Sense HAT indica el nivel de agua en la matriz |
+| SONOFF 9 | `IIoT/9/relay/0/set` recibe `1` por encima de 25 °C y `0` a 24,5 °C o menos. El relé informa en `IIoT/9/relay/0` |
 
-## Configuración privada
-
-Copiá las plantillas a `wifi_connection_info.h`, `pi-config.local.json` y `flow-config.local.json`, siguiendo la guía. Esos archivos y el flow configurado `greenhouse-flow.local.json` están excluidos de Git. No publiques contraseñas, topics privados de dispositivos ni exportaciones con credenciales.
-
-Los documentos del profesor, PDFs del curso, datos personales, configuraciones privadas y el historial del workspace no se incluyen en este repositorio.
-
-## Pruebas locales
-
-Desde la carpeta del repositorio, con Node.js 18+ y Python 3:
-
-```bash
-node --test tests/*.test.js
-python3 -m unittest discover -s tests -p 'test_*.py'
-python3 raspberry-pi/greenhouse.py --simulate --samples 3
-```
-
-La simulación de Python solo imprime datos de ejemplo; no se conecta a la red ni al hardware.
+También están disponibles las [herramientas de terminal para MQTT](mqtt-lab/README.md).

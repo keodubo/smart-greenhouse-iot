@@ -60,7 +60,7 @@ Para escuchar simultáneamente mensajes bajo ese grupo:
 python3 mqtt-lab/mqtt-lab.py --topic 'IIoT/grupo99/+' sub
 ```
 
-El comodín también muestra cualquier otro topic de un nivel bajo `IIoT/grupo99/`. Los mensajes son texto plano: el flow de control de la lámpara requiere JSON validado (ver [la guía de montaje](../setup-guide.md)); estos números solos sirven para probar MQTT y no activan ese controlador. El topic `nivel` representa un porcentaje estimado, no una medición de distancia.
+El comodín también muestra cualquier otro topic de un nivel bajo `IIoT/grupo99/`. El [flow de la demo](../demo-arduino.md) consume las temperaturas numéricas de ese topic y puede conmutar la lámpara. Durante la demo usá el suscriptor para observar las lecturas reales del Arduino.
 
 HiveMQ es público y compartido. Cualquier cliente podría enviar o leer esos topics; coordiná las pruebas con tu grupo y no envíes datos privados. Antes de publicar verificá que no haya otro sistema actuando sobre el topic.
 

@@ -1,6 +1,0 @@
-{
-  "broker": "broker.hivemq.com",
-  "port": 1883,
-  "prefix": "IIoT/grupo99",
-  "client_id": "greenhouse-grupo99-raspberry16"
-}
