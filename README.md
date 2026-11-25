@@ -1,5 +1,7 @@
 # Smart Greenhouse IoT
 
+**Raspberry 16 y SONOFF 9:** [importar el nuevo flow de una pestaña](demo-pi16.md).
+
 **Para la demo integrada del grupo 99, seguí [Demo del invernadero desde la Raspberry](demo.md).** El generador configura el SONOFF asignado y la ruta del display en un solo archivo importable.
 
 Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR WiFi 1010 + sensor de inmersión calibrado y una lámpara controlada por SONOFF mediante MQTT y Node-RED.

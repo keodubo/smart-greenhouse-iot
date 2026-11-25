@@ -41,7 +41,7 @@ def validate_config(config):
     return config
 
 
-def run_hardware(config, sensor=None, joystick=False):
+def run_hardware(config, sensor=None, joystick=False, pi16=False):
     telemetry_only = sensor is not None
     import paho.mqtt.client as mqtt
     from sense_hat import SenseHat
@@ -113,7 +113,10 @@ def run_hardware(config, sensor=None, joystick=False):
                     except (OSError, RuntimeError):
                         payload = measurement(None, unit)
                     if client.is_connected():
-                        client.publish(prefix + '/' + suffix, json.dumps(payload, allow_nan=False), qos=0, retain=False)
+                        message = json.dumps(payload, allow_nan=False)
+                        if pi16:
+                            client.publish(prefix + '/pi16/' + suffix, message, qos=0, retain=False)
+                        client.publish(prefix + '/' + suffix, message, qos=0, retain=False)
                     print(suffix, json.dumps(payload), flush=True)
             if not telemetry_only:
                 sense.set_pixels(status_pixels(latest_status if client.is_connected() else None, now - received))
@@ -128,6 +131,7 @@ def run_hardware(config, sensor=None, joystick=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path)
+    parser.add_argument('--pi16', action='store_true', help='Publicar para Invernadero · Raspberry 16 y el dashboard del grupo')
     parser.add_argument('--demo', action='store_true', help='Usar la configuración de la demo con sensores y joystick')
     parser.add_argument('--check-config', action='store_true', help='Validate configuration without hardware/network access')
     parser.add_argument('--simulate', action='store_true', help='Print labelled example measurements offline')
@@ -143,6 +147,11 @@ def main():
         return
     directory = Path(__file__).resolve().parent
     demo_config = directory / 'demo-pi.local.json'
+    if args.pi16:
+        args.demo = True
+        if args.config is not None:
+            parser.error('--pi16 usa pi16.json junto al programa.')
+        args.config = directory / 'pi16.json'
     if args.demo:
         args.sensor = args.sensor or 'ambos'
         args.joystick = True
@@ -166,7 +175,7 @@ def main():
         print('Configuration valid. No hardware/network access performed.')
         return
     try:
-        run_hardware(config, args.sensor, args.joystick)
+        run_hardware(config, args.sensor, args.joystick, args.pi16)
     except KeyboardInterrupt:
         print('Publicación detenida.' if args.sensor else 'Publisher stopped. Use Node-RED STOP and verify the bulb is OFF.')
 
