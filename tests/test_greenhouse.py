@@ -10,7 +10,8 @@ class GreenhouseTests(unittest.TestCase):
     def test_sensor_payload_rejects_invalid_values(self):
         for value in [None, True, float('nan'), float('inf'), '17', -50, 120]:
             self.assertEqual(g.measurement(value, 'C'), {'value': None, 'unit': 'C', 'valid': False})
-        self.assertEqual(g.measurement(21.567, 'C'), {'value':21.57,'unit':'C','valid':True})
+        self.assertEqual(g.measurement(21.567, 'C'), {'value':21.6,'unit':'C','valid':True})
+        self.assertEqual(g.measurement(29.94, 'percent')['value'], 29.9)
         self.assertFalse(g.measurement(101, 'percent')['valid'])
 
     def test_joystick_ignores_release_hold_and_unmapped_directions(self):

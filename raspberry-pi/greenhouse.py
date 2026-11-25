@@ -11,7 +11,7 @@ import time
 def measurement(value, unit):
     minimum, maximum = (-40, 100) if unit == 'C' else (0, 100)
     valid = type(value) in (int, float) and math.isfinite(value) and minimum <= value <= maximum
-    return {'value': round(value, 2) if valid else None, 'unit': unit, 'valid': valid}
+    return {'value': round(float(value), 1) if valid else None, 'unit': unit, 'valid': valid}
 
 def joystick_command(direction, action):
     return {'up': 'ON', 'down': 'OFF', 'middle': 'AUTO'}.get(direction) if action == 'pressed' else None
