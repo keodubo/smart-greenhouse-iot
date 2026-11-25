@@ -5,7 +5,7 @@ const defaults = require('./flow-config.example.json');
 const {buildFlow} = require('./build-flow');
 const {buildDisplayFlow} = require('./build-display-flow');
 
-const [device, empty, full, ...extra] = process.argv.slice(2);
+const [device = '9', empty, full, ...extra] = process.argv.slice(2);
 if (!/^\d+$/.test(device || '') || extra.length || (empty === undefined) !== (full === undefined)) {
   throw Error('Uso: node node-red/prepare-demo.js NUMERO_SONOFF [VACIO_CM LLENO_CM]');
 }
@@ -37,5 +37,8 @@ const live = buildFlow(config).filter(n => n.id !== 'greenhouse-demo' && n.z !==
 const nodes = [...live,...display];
 const file = path.join(__dirname,'demo.local.json');
 fs.writeFileSync(file,JSON.stringify(nodes,null,2)+'\n');
+console.log('Broker: '+config.broker+':'+config.port+' | Sensores: '+config.prefix);
+console.log('SONOFF '+device+' | Comando: '+config.relayTopic+' | Estado: '+config.feedbackTopic);
+console.log('Automático: ON debajo de '+config.onBelow+' °C, OFF desde '+config.offAt+' °C.');
 console.log('Importá '+file);
 console.log(config.calibrationConfirmed ? 'Nivel calibrado con las medidas indicadas.' : 'Distancia en cm disponible. Nivel pendiente de calibración.');

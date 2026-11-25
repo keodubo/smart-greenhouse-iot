@@ -9,9 +9,12 @@ Abrí una terminal en el escritorio. Si clonaste en otra ubicación, usá esa ca
 ```bash
 cd ~/smart-greenhouse-iot
 git pull --ff-only
-read -rp 'Número de la etiqueta del SONOFF: ' sonoff
-bash preparar-demo.sh "$sonoff"
+bash preparar-demo.sh --temperatura-ambiente 9
 ```
+
+Este comando usa el SONOFF 9 y lee la temperatura actual del Sense HAT. Fija el umbral de encendido en el siguiente grado entero y el de apagado un grado más arriba. Anotá los dos valores que imprime. Para usar los umbrales fijos del proyecto (18 y 22 °C), ejecutá `bash preparar-demo.sh 9`.
+
+**Configuración del grupo 99.** Para la prueba de la lámpara, el generador completa todo. Si ves `CHANGE_ME` en `pi-config.example.json`, estás viendo una plantilla. El publicador de la demo usa `demo-pi.local.json`. El broker es `broker.hivemq.com`, puerto `1883`. Los sensores publican bajo `IIoT/grupo99`. El comando previsto es `IIoT/9/relay/0/set` con `1` o `0`, y el estado es `IIoT/9/relay/0`. Confirmá el topic del equipo nuevo antes del despliegue: en otra terminal ejecutá `mosquitto_sub -h broker.hivemq.com -p 1883 -v -t 'IIoT/9/#'`, pulsá el botón físico del SONOFF 9 y comprobá que la línea del relé cambia junto con la lámpara. Dejala apagada. Si solo ves eventos de botón o no llega nada, revisá el topic y el broker del equipo con el laboratorio antes de habilitar LIVE.
 
 Esperá el mensaje **Python listo**. Necesitás Node.js, Node-RED, Python con venv y la biblioteca física sense_hat instalada en el sistema. El script genera **node-red/demo.local.json**, configura HiveMQ en el puerto 1883 e instala Paho en el entorno virtual del proyecto. Conserva los flows que ya tengas en el editor.
 
@@ -32,9 +35,9 @@ raspberry-pi/.venv/bin/python raspberry-pi/greenhouse.py --config raspberry-pi/d
 ```
 
 1. Esperá **MQTT connected**. En Node-RED abrí **Debug** (insecto), expandí **LIVE full status** y buscá `temperature` y `humidity`. El Sense HAT publica cada cinco segundos. La matriz muestra las lecturas recibidas por MQTT aproximadamente cada diez segundos.
-2. Pulsá **ARM (then fresh sample)** en la pestaña LIVE. Esperá una lectura nueva. En automático, por debajo de 18 °C se pide ON, desde 22 °C se pide OFF y en el medio se conserva el estado anterior. Si la sala está cálida, es esperable que la lámpara siga apagada.
+2. Pulsá **ARM (then fresh sample)** en la pestaña LIVE. Esperá una lectura nueva. En AUTO, una lectura inferior al primer umbral enciende la lámpara. Acercá la mano al Sense HAT y esperá a que la lectura llegue al segundo umbral para ver el apagado. Retirá la mano para que vuelva a bajar. En el intervalo entre ambos umbrales se conserva el estado anterior.
 3. Con temperatura vigente, mové el joystick **arriba** para encender, **abajo** para apagar y **pulsalo hacia adentro** para volver a AUTO. En Debug, `requested` muestra la orden y `relayReported` el último estado informado por el SONOFF desde la conexión, inicialmente nulo. Mirá la lámpara para confirmar la salida física.
-4. Si querés demostrar la conmutación automática cerca de la temperatura ambiente, elegí umbrales alcanzables según la lectura real. Por ejemplo, si la lectura inicial es 24 °C, generá el flow con `ON_BELOW_C=25 OFF_AT_C=26 node node-red/prepare-demo.js "$sonoff"`. Repetí el paso 2 de esta guía con el controlador detenido. Volvé a arrancar el publicador y pulsá ARM. Una lectura menor que 25 pide ON y una lectura de 26 o más pide OFF. Para comprobarlo, acercá una mano al sensor y observá el valor. Conservá los mismos umbrales si luego regenerás el flow con calibración.
+4. Si querés demostrar la conmutación automática cerca de la temperatura ambiente, elegí umbrales alcanzables según la lectura real. Por ejemplo, si la lectura inicial es 24 °C, generá el flow con `ON_BELOW_C=25 OFF_AT_C=26 node node-red/prepare-demo.js 9`. Repetí el paso 2 de esta guía con el controlador detenido. Volvé a arrancar el publicador y pulsá ARM. Una lectura menor que 25 pide ON y una lectura de 26 o más pide OFF. Para comprobarlo, acercá una mano al sensor y observá el valor. Conservá los mismos umbrales si luego regenerás el flow con calibración.
 5. Para terminar, pulsá **STOP / DISARM**, comprobá que la lámpara se apagó y luego detené Python con **Ctrl+C**. Una desconexión del broker impide entregar nuevas órdenes. Al reconectar, el controlador pide OFF y requiere volver a pulsar ARM.
 
 ## 4. Incorporar el nivel del tanque
