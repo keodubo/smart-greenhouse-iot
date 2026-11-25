@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {toDisplayMessage} = require('./display-message');
 
-function buildDisplayFlow() {
+function buildDisplayFlow(allowPlainNumbers = true) {
   const tab = 'mqtt-display-tab';
   const broker = 'mqtt-display-broker';
   return [
@@ -26,7 +26,7 @@ function buildDisplayFlow() {
 const readings = context.get('readings') || {};
 const now = Date.now();
 if (msg.topic) {
-  const result = toDisplayMessage(msg);
+  const result = toDisplayMessage(msg, ${allowPlainNumbers});
   if (result) {
     const key = msg.topic === 'IIoT/grupo99/humedad' ? 'humidity' : 'temperature';
     readings[key] = {value: result.payload, at: now};

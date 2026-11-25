@@ -116,3 +116,16 @@ test('reports live relay messages separately from requests until disconnect', ()
   assert.equal(run({kind:'feedback',payload:'0'}).status.relayReported,'OFF');
   assert.equal(run({kind:'connection',connected:false}).status.relayReported,null);
 });
+test('interleaved scalar messages neither overwrite nor refresh Sense HAT measurements', () => {
+  const run=ready();
+  run(reading('temperatura',17));
+  run(reading('humedad',30.83));
+  assert.equal(run({kind:'humedad',payload:45.30}).status.humidity,30.83);
+  const mixed=run({kind:'temperatura',payload:'24.04'},5000);
+  assert.equal(mixed.status.temperature,17);
+  assert.equal(mixed.status.requested,'ON');
+  const expired=run({kind:'temperatura',payload:'24.04'},10000);
+  assert.equal(expired.status.temperature,null);
+  assert.equal(expired.status.humidity,null);
+  assert.equal(expired.relay.payload,'0');
+});

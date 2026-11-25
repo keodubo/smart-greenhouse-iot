@@ -23,3 +23,8 @@ test('does not display retained readings or forward exec control fields', () => 
   assert.equal(toDisplayMessage({payload:23.5,retain:true}), null);
   assert.deepEqual(toDisplayMessage({payload:23.5,kill:'SIGTERM',pid:123}), {payload:'23.5'});
 });
+test('integrated display accepts structured readings and drops bare MQTT numbers', () => {
+  assert.equal(toDisplayMessage({payload:'24.04'},false),null);
+  assert.deepEqual(toDisplayMessage({payload:'{"value":36.27,"unit":"C","valid":true}'},false),
+    {payload:'36.3'});
+});

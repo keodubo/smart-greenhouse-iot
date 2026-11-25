@@ -31,7 +31,7 @@ const piConfig = {broker:config.broker, port:config.port, prefix:config.prefix, 
 fs.writeFileSync(path.join(pi,'demo-pi.local.json'),JSON.stringify(piConfig,null,2)+'\n');
 const python = path.join(pi,'.venv','bin','python');
 const quote = value => "'" + value.replace(/'/g, "'\\''") + "'";
-const display = buildDisplayFlow();
+const display = buildDisplayFlow(false);
 display.find(n => n.type === 'exec').command = [python,path.join(pi,'mostrar-mqtt.py')].map(quote).join(' ');
 const live = buildFlow(config).filter(n => n.id !== 'greenhouse-demo' && n.z !== 'greenhouse-demo');
 const nodes = [...live,...display];

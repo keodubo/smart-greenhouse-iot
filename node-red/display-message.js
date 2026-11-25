@@ -1,5 +1,5 @@
 'use strict';
-function toDisplayMessage(msg) {
+function toDisplayMessage(msg, allowPlainNumbers = true) {
   if (msg.retain === true) return null;
   let data = msg.payload;
   if (typeof data === 'string') {
@@ -8,7 +8,7 @@ function toDisplayMessage(msg) {
   }
   const humidity = msg.topic === "IIoT/grupo99/humedad";
   const unit = humidity ? "percent" : "C";
-  const value = typeof data === 'number' ? data :
+  const value = allowPlainNumbers && typeof data === 'number' ? data :
     data && data.valid === true && data.unit === unit ? data.value : null;
   if (typeof value !== 'number' || !Number.isFinite(value) ||
       value < (humidity ? 0 : -40) || value > 100) return null;

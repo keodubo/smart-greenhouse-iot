@@ -42,9 +42,13 @@ function step(state, event, now, config) {
   if (specs[event.kind] && event.retain !== true) {
     let p = event.payload;
     if (typeof p === 'string') { try { p=JSON.parse(p); } catch (_) { p=null; } }
-    const [unit,min,max] = specs[event.kind];
-    s[event.kind] = p && p.valid === true && p.unit === unit && finite(p.value) &&
-      p.value >= min && p.value <= max ? {value:p.value,at:now} : null;
+    // Bare numbers share the lab topics with structured Sense HAT measurements.
+    const unrelatedNumber = typeof p === 'number' && ['temperatura','humedad'].includes(event.kind);
+    if (!unrelatedNumber) {
+      const [unit,min,max] = specs[event.kind];
+      s[event.kind] = p && p.valid === true && p.unit === unit && finite(p.value) &&
+        p.value >= min && p.value <= max ? {value:p.value,at:now} : null;
+    }
   }
   const fresh = key => s[key] !== null && now >= s[key].at && now-s[key].at < c.staleMs;
   const temperatureOK = fresh('temperatura');

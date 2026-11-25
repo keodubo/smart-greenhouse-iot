@@ -18,6 +18,8 @@ Este comando usa el SONOFF 9 y lee la temperatura actual del Sense HAT. Fija el 
 
 Esperá el mensaje **Python listo**. Necesitás Node.js, Node-RED, Python con venv y la biblioteca física sense_hat instalada en el sistema. El script genera **node-red/demo.local.json**, configura HiveMQ en el puerto 1883 e instala Paho en el entorno virtual del proyecto. Conserva los flows que ya tengas en el editor.
 
+Para actualizar un montaje ya preparado con los umbrales de 30 y 31 °C, ejecutá `ON_BELOW_C=30 OFF_AT_C=31 node node-red/prepare-demo.js 9` tras el pull y volvé a importar el archivo generado. El controlador y la matriz de esta demo toman las lecturas estructuradas del Sense HAT. Los números sueltos que lleguen por los mismos topics se ignoran. Una lectura vence después de 15 segundos sin una muestra válida.
+
 ## 2. Importar el flow de la demo
 
 1. Abrí [Node-RED en la Raspberry](http://localhost:1880). Si está detenido, ejecutá `node-red` en otra terminal y dejala abierta.
