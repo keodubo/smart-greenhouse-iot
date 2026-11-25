@@ -1,0 +1,382 @@
+[
+  {
+    "id": "arduino99-panel",
+    "type": "tab",
+    "label": "Dashboard & SenseHAT · Arduino",
+    "disabled": false
+  },
+  {
+    "id": "arduino99-lamp",
+    "type": "tab",
+    "label": "Arduino → SONOFF 9",
+    "disabled": false
+  },
+  {
+    "id": "arduino99-broker",
+    "type": "mqtt-broker",
+    "name": "HiveMQ · grupo99",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "protocolVersion": "4",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "keepalive": "10",
+    "cleansession": true
+  },
+  {
+    "id": "arduino99-in-temperatura",
+    "z": "arduino99-panel",
+    "type": "mqtt in",
+    "name": "temperatura",
+    "x": 120,
+    "y": 70,
+    "broker": "arduino99-broker",
+    "topic": "IIoT/grupo99/temperatura",
+    "qos": "0",
+    "datatype": "utf8",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "arduino99-values"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-in-humedad",
+    "z": "arduino99-panel",
+    "type": "mqtt in",
+    "name": "humedad",
+    "x": 120,
+    "y": 120,
+    "broker": "arduino99-broker",
+    "topic": "IIoT/grupo99/humedad",
+    "qos": "0",
+    "datatype": "utf8",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "arduino99-values"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-in-nivel",
+    "z": "arduino99-panel",
+    "type": "mqtt in",
+    "name": "nivel",
+    "x": 120,
+    "y": 170,
+    "broker": "arduino99-broker",
+    "topic": "IIoT/grupo99/nivel",
+    "qos": "0",
+    "datatype": "utf8",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "arduino99-values"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-panel-timer",
+    "z": "arduino99-panel",
+    "type": "inject",
+    "name": "Revisar vigencia",
+    "x": 120,
+    "y": 230,
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "payloadType": "date",
+    "repeat": "1",
+    "once": true,
+    "onceDelay": 0.2,
+    "wires": [
+      [
+        "arduino99-values"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-values",
+    "z": "arduino99-panel",
+    "type": "function",
+    "name": "Lecturas del Arduino",
+    "x": 400,
+    "y": 140,
+    "outputs": 2,
+    "func": "function reading(payload,kind) {\n  let value;\n  try { value=JSON.parse(payload); } catch { return null; }\n  if (kind==='nivel' && value && typeof value==='object' && value.valid===true && value.unit==='percent') value=value.value;\n  const min=kind==='temperatura'?-40:0;\n  return Number.isFinite(value) && value>=min && value<=100 ? value : null;\n}\nif (msg.retain) return null;\nconst now=Date.now(), data=flow.get('samples') || {};\nif (msg.topic) {\n  const kind=msg.topic.split('/').pop();\n  const value=reading(msg.payload,kind);\n  if (value===null && kind!=='nivel') return null;\n  data[kind]={value,at:now};\n  flow.set('samples',data);\n}\nconst status={};\nfor (const k of ['temperatura','humedad','nivel']) status[k]=data[k] && now-data[k].at<15000 ? data[k].value : null;\nflow.set('status',status);\nconst level=status.nivel;\nconst color=level===null?'off':level<20?'red':level>=25?'green':context.get('color')==='red'?'red':'green';\nconst changed=color!==context.get('color');\ncontext.set('color',color);\nreturn [changed?{payload:color}:null,msg.topic?{payload:status}:null];",
+    "initialize": "flow.set('samples',{}); flow.set('status',{}); context.set('color',null);",
+    "wires": [
+      [
+        "arduino99-led"
+      ],
+      [
+        "arduino99-debug"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-debug",
+    "z": "arduino99-panel",
+    "type": "debug",
+    "name": "Datos Arduino",
+    "x": 690,
+    "y": 150,
+    "active": true,
+    "tosidebar": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "wires": []
+  },
+  {
+    "id": "arduino99-led",
+    "z": "arduino99-panel",
+    "type": "exec",
+    "name": "Nivel en matriz LED",
+    "x": 700,
+    "y": 80,
+    "command": "python3 \"$HOME/smart-greenhouse-iot/raspberry-pi/indicador-agua.py\"",
+    "addpay": "payload",
+    "append": "",
+    "useSpawn": "false",
+    "timer": "5",
+    "wires": [
+      [],
+      [
+        "arduino99-errors"
+      ],
+      []
+    ]
+  },
+  {
+    "id": "arduino99-errors",
+    "z": "arduino99-panel",
+    "type": "debug",
+    "name": "Error del display",
+    "x": 950,
+    "y": 80,
+    "active": true,
+    "tosidebar": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "wires": []
+  },
+  {
+    "id": "arduino99-page",
+    "z": "arduino99-panel",
+    "type": "http in",
+    "name": "GET /ui",
+    "x": 120,
+    "y": 330,
+    "method": "get",
+    "url": "/ui",
+    "upload": false,
+    "wires": [
+      [
+        "arduino99-html"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-api",
+    "z": "arduino99-panel",
+    "type": "http in",
+    "name": "GET /ui/datos",
+    "x": 120,
+    "y": 410,
+    "method": "get",
+    "url": "/ui/datos",
+    "upload": false,
+    "wires": [
+      [
+        "arduino99-json"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-html",
+    "z": "arduino99-panel",
+    "type": "template",
+    "name": "Panel del invernadero",
+    "x": 400,
+    "y": 330,
+    "field": "payload",
+    "fieldType": "msg",
+    "format": "html",
+    "syntax": "plain",
+    "template": "<!doctype html>\n<html lang=\"es\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Invernadero · Grupo 99</title>\n<style>body{font:1.2rem system-ui,sans-serif;color:#18392c;background:#f4f7f3;max-width:44rem;margin:8vh auto;padding:1rem}dl{padding:1.5rem;background:white;border-radius:.6rem}dd{font-size:2rem;margin:0 0 1rem}output{font-variant-numeric:tabular-nums}</style>\n<h1>Invernadero · Grupo 99</h1><dl><dt>Temperatura</dt><dd><output id=\"temperatura\">—</output> °C</dd><dt>Humedad</dt><dd><output id=\"humedad\">—</output> %</dd><dt>Nivel de agua</dt><dd><output id=\"nivel\">—</output> %</dd></dl>\n<script>\nasync function update(){\n  let data={};\n  try { const r=await fetch('/ui/datos',{cache:'no-store'}); if(r.ok)data=await r.json(); } catch {}\n  for(const k of ['temperatura','humedad','nivel']) document.getElementById(k).textContent=Number.isFinite(data[k])?data[k].toLocaleString('es-ES'):'—';\n  setTimeout(update,1000);\n}\nupdate();\n</script></html>\n",
+    "output": "str",
+    "wires": [
+      [
+        "arduino99-page-response"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-page-response",
+    "z": "arduino99-panel",
+    "type": "http response",
+    "name": "Página",
+    "x": 700,
+    "y": 330,
+    "headers": {
+      "Content-Type": "text/html; charset=utf-8"
+    },
+    "wires": []
+  },
+  {
+    "id": "arduino99-json",
+    "z": "arduino99-panel",
+    "type": "function",
+    "name": "Valores actuales",
+    "x": 400,
+    "y": 410,
+    "outputs": 1,
+    "func": "msg.payload=flow.get('status') || {}; msg.headers={'Cache-Control':'no-store'}; return msg;",
+    "wires": [
+      [
+        "arduino99-data-response"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-data-response",
+    "z": "arduino99-panel",
+    "type": "http response",
+    "name": "Datos",
+    "x": 700,
+    "y": 410,
+    "wires": []
+  },
+  {
+    "id": "arduino99-lamp-temp",
+    "z": "arduino99-lamp",
+    "type": "mqtt in",
+    "name": "temperatura",
+    "x": 130,
+    "y": 80,
+    "broker": "arduino99-broker",
+    "topic": "IIoT/grupo99/temperatura",
+    "qos": "0",
+    "datatype": "utf8",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "arduino99-control"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-lamp-timer",
+    "z": "arduino99-lamp",
+    "type": "inject",
+    "name": "Revisar vigencia",
+    "x": 130,
+    "y": 160,
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "payloadType": "date",
+    "repeat": "1",
+    "once": true,
+    "onceDelay": 0.2,
+    "wires": [
+      [
+        "arduino99-control"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-connection",
+    "z": "arduino99-lamp",
+    "type": "status",
+    "name": "Conexión a HiveMQ",
+    "x": 130,
+    "y": 230,
+    "scope": [
+      "arduino99-lamp-temp"
+    ],
+    "wires": [
+      [
+        "arduino99-control"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-control",
+    "z": "arduino99-lamp",
+    "type": "function",
+    "name": "ON > 25 · OFF ≤ 24,5",
+    "x": 420,
+    "y": 130,
+    "outputs": 1,
+    "initialize": "context.set('last',null); context.set('at',0); context.set('connected',false);",
+    "func": "function reading(payload,kind) {\n  let value;\n  try { value=JSON.parse(payload); } catch { return null; }\n  if (kind==='nivel' && value && typeof value==='object' && value.valid===true && value.unit==='percent') value=value.value;\n  const min=kind==='temperatura'?-40:0;\n  return Number.isFinite(value) && value>=min && value<=100 ? value : null;\n}\nif(msg.status){\n  const connected=msg.status.fill==='green';\n  if(connected!==context.get('connected')){context.set('last',null);context.set('at',0);}\n  context.set('connected',connected);\n}\nif(!context.get('connected') || msg.retain) return null;\nlet next=context.get('last') || '0';\nif(msg.topic){\n  const t=reading(msg.payload,'temperatura');\n  if(t===null) return null;\n  context.set('at',Date.now());\n  if(t>25) next='1';\n  else if(t<=24.5) next='0';\n}\nif(Date.now()-context.get('at')>=15000) next='0';\nif(next===context.get('last')) return null;\ncontext.set('last',next);\nnode.status({fill:next==='1'?'green':'grey',shape:'dot',text:next==='1'?'Orden ON':'Orden OFF'});\nreturn {payload:next};",
+    "wires": [
+      [
+        "arduino99-command"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-command",
+    "z": "arduino99-lamp",
+    "type": "mqtt out",
+    "name": "SONOFF 9",
+    "x": 700,
+    "y": 130,
+    "broker": "arduino99-broker",
+    "topic": "IIoT/9/relay/0/set",
+    "qos": "0",
+    "retain": "false",
+    "wires": []
+  },
+  {
+    "id": "arduino99-relay",
+    "z": "arduino99-lamp",
+    "type": "mqtt in",
+    "name": "Estado SONOFF 9",
+    "x": 130,
+    "y": 320,
+    "broker": "arduino99-broker",
+    "topic": "IIoT/9/relay/0",
+    "qos": "0",
+    "datatype": "utf8",
+    "wires": [
+      [
+        "arduino99-report"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-report",
+    "z": "arduino99-lamp",
+    "type": "debug",
+    "name": "Estado recibido del SONOFF",
+    "x": 450,
+    "y": 320,
+    "active": true,
+    "tosidebar": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "wires": []
+  }
+]

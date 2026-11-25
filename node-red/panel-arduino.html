@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invernadero · Grupo 99</title>
+<style>body{font:1.2rem system-ui,sans-serif;color:#18392c;background:#f4f7f3;max-width:44rem;margin:8vh auto;padding:1rem}dl{padding:1.5rem;background:white;border-radius:.6rem}dd{font-size:2rem;margin:0 0 1rem}output{font-variant-numeric:tabular-nums}</style>
+<h1>Invernadero · Grupo 99</h1><dl><dt>Temperatura</dt><dd><output id="temperatura">—</output> °C</dd><dt>Humedad</dt><dd><output id="humedad">—</output> %</dd><dt>Nivel de agua</dt><dd><output id="nivel">—</output> %</dd></dl>
+<script>
+async function update(){
+  let data={};
+  try { const r=await fetch('/ui/datos',{cache:'no-store'}); if(r.ok)data=await r.json(); } catch {}
+  for(const k of ['temperatura','humedad','nivel']) document.getElementById(k).textContent=Number.isFinite(data[k])?data[k].toLocaleString('es-ES'):'—';
+  setTimeout(update,1000);
+}
+update();
+</script></html>

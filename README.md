@@ -1,6 +1,8 @@
 # Smart Greenhouse IoT
 
-**Raspberry 16 y SONOFF 9:** [importar el nuevo flow de una pestaña](demo-pi16.md).
+**Demo actual con los tres sensores del Arduino:** [importar dashboard, matriz y control del SONOFF 9](demo-arduino.md).
+
+**Montaje alternativo con sensores del Sense HAT:** [importar el nuevo flow de una pestaña](demo-pi16.md).
 
 **Para la demo integrada del grupo 99, seguí [Demo del invernadero desde la Raspberry](demo.md).** El generador configura el SONOFF asignado y la ruta del display en un solo archivo importable.
 
