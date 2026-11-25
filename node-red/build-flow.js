@@ -24,7 +24,7 @@ if (demo && msg.kind === 'reset-demo') {
   const prefix=config.prefix+'/';
   if (typeof msg.topic !== 'string' || !msg.topic.startsWith(prefix)) return null;
   const kind=msg.topic.slice(prefix.length);
-  if (!['temperatura','humedad','distancia','manual'].includes(kind)) return null;
+  if (!['temperatura','humedad','nivel','manual'].includes(kind)) return null;
   event={kind,payload:msg.payload,retain:msg.retain};
 }
 const result=module.exports.step(state,event,Date.now(),config);
@@ -32,7 +32,6 @@ context.set('greenhouse',result.state);
 const status={...result.status,simulation:demo};
 node.status({fill:status.armed?'green':'yellow',shape:status.armed?'dot':'ring',text:status.mode+' / requested '+status.requested+' / relé '+(status.relayReported || '?')+(status.lowWater?' / AGUA BAJA':'')});
 const telemetry=(!demo && status.connected) ? [
-  {topic:config.prefix+'/nivel',payload:JSON.stringify(result.level),qos:0,retain:false},
   {topic:config.prefix+'/estado',payload:JSON.stringify(status),qos:0,retain:false}
 ] : null;
 return [result.relay,telemetry,{payload:status}];`;
@@ -55,9 +54,9 @@ function buildFlow(config) {
   const controller=(z,id,c,demoMode)=>add(z,id,'function',demoMode?'Demo controller':'Live controller',600,240,{
     func:functionBody(c,demoMode),outputs:3,timeout:0,noerr:0,
     initialize:"context.set('greenhouse', undefined);",finalize:'',libs:[],
-    outputLabels:['Relay request','Level + status MQTT','Readable status']
+    outputLabels:['Relay request','Status MQTT','Readable status']
   },[[z+'-relay'],demoMode?[]:[z+'-telemetry'],[z+'-status']]);
-  const dc={...config,prefix:'IIoT/offline-demo',relayTopic:'offline-demo/relay',onPayload:'ON',offPayload:'OFF',calibrationConfirmed:true,emptyCm:20,fullCm:5};
+  const dc={...config,prefix:'IIoT/offline-demo',relayTopic:'offline-demo/relay',onPayload:'ON',offPayload:'OFF'};
   controller(demo,'demo-controller',dc,true);
   debug(demo,demo+'-relay','SIMULATED relay request',960,180);
   debug(demo,demo+'-status','SIMULATED full status',960,300);
@@ -66,9 +65,9 @@ function buildFlow(config) {
     ['Temperature 20 C',{kind:'temperatura',payload:{value:20,unit:'C',valid:true}}],
     ['Temperature 22 C',{kind:'temperatura',payload:{value:22,unit:'C',valid:true}}],
     ['Invalid temperature',{kind:'temperatura',payload:{value:null,unit:'C',valid:false}}],
-    ['Water 19%',{kind:'distancia',payload:{value:17.15,unit:'cm',valid:true}}],
-    ['Water 22%',{kind:'distancia',payload:{value:16.7,unit:'cm',valid:true}}],
-    ['Water 25%',{kind:'distancia',payload:{value:16.25,unit:'cm',valid:true}}],
+    ['Water 19%',{kind:'nivel',payload:{value:19,unit:'percent',valid:true}}],
+    ['Water 22%',{kind:'nivel',payload:{value:22,unit:'percent',valid:true}}],
+    ['Water 25%',{kind:'nivel',payload:{value:25,unit:'percent',valid:true}}],
     ['Humidity 55%',{kind:'humedad',payload:{value:55,unit:'percent',valid:true}}],
     ['Manual ON',{kind:'manual',payload:'ON'}],['Manual OFF',{kind:'manual',payload:'OFF'}],
     ['AUTO',{kind:'manual',payload:'AUTO'}]];
@@ -77,7 +76,7 @@ function buildFlow(config) {
   add(demo,'demo-note','comment','Offline only — no hardware commands',650,60,{});
 
   controller(live,'live-controller',config,false);
-  ['temperatura','humedad','distancia','manual'].forEach((suffix,i)=>add(live,'live-'+suffix,'mqtt in',suffix,180,80+i*55,{
+  ['temperatura','humedad','nivel','manual'].forEach((suffix,i)=>add(live,'live-'+suffix,'mqtt in',suffix,180,80+i*55,{
     topic:config.prefix+'/'+suffix,qos:'0',datatype:'utf8',broker,nl:false,rap:true,rh:0,inputs:0
   },[['live-controller']]));
   if (config.feedbackTopic) add(live,'live-feedback','mqtt in','Estado informado por SONOFF',180,560,{
@@ -88,7 +87,7 @@ function buildFlow(config) {
   inject(live,'live-stop','STOP / DISARM',180,450,{kind:'stop'},'live-controller');
   inject(live,'live-tick','Freshness check (1 s)',180,500,{kind:'tick'},'live-controller','1');
   add(live,live+'-relay','mqtt out','Verified SONOFF command',970,160,{topic:'',qos:'0',retain:'false',respTopic:'',contentType:'',userProps:'',correl:'',expiry:'',broker});
-  add(live,live+'-telemetry','mqtt out','Level / status',970,240,{topic:'',qos:'0',retain:'false',respTopic:'',contentType:'',userProps:'',correl:'',expiry:'',broker});
+  add(live,live+'-telemetry','mqtt out','Estado del invernadero',970,240,{topic:'',qos:'0',retain:'false',respTopic:'',contentType:'',userProps:'',correl:'',expiry:'',broker});
   debug(live,live+'-status','LIVE full status',970,320);
   add(live,'live-note','comment','Disabled until configured — actual relay state is UNKNOWN',660,60,{});
   return nodes;

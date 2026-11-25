@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const {step} = require('../node-red/controller');
 
 const config = {prefix:'IIoT/test-only', relayTopic:'test-only/relay', onPayload:'1',
-  offPayload:'0', calibrationConfirmed:true, emptyCm:20, fullCm:5,
+  offPayload:'0',
   onBelow:18, offAt:22, lowBelow:20, lowClearAt:25, staleMs:15000};
 function session(overrides = {}) {
   let state; let time = 0; const cfg = {...config,...overrides};
@@ -16,7 +16,7 @@ function session(overrides = {}) {
   };
 }
 const reading = (kind,value,extra={}) => ({kind,payload:{value,valid:true,
-  unit:kind==='temperatura'?'C':kind==='distancia'?'cm':'percent'},...extra});
+  unit:kind==='temperatura'?'C':'percent'},...extra});
 function ready() { const run=session(); run({kind:'connection',connected:true}); run({kind:'arm'}); return run; }
 
 test('starts disarmed and rejects manual ON without fresh temperature', () => {
@@ -51,23 +51,21 @@ test('invalid, malformed and retained temperature cannot turn the relay on', () 
   const run=ready();
   assert.equal(run(reading('temperatura',17,{retain:true})).status.requested,'OFF');
 });
-test('calibrates usable height and applies low-water hysteresis', () => {
+test('Arduino percentages cover empty, full and low-water hysteresis', () => {
   const run=ready();
-  assert.deepEqual([20,12.5,5].map(d=>run(reading('distancia',d)).level.value),[0,50,100]);
-  assert.deepEqual([17.15,16.7,16.25].map(d=>run(reading('distancia',d)).status.lowWater),[true,true,false]);
+  for (const value of [0,50.5,100]) assert.equal(run(reading('nivel',value)).status.level,value);
+  assert.deepEqual([19,22,25].map(v=>run(reading('nivel',v)).status.lowWater),[true,true,false]);
 });
-test('invalid distance and expired water never appear as a valid zero', () => {
+test('invalid, retained and expired levels cannot masquerade as a fresh percentage', () => {
   const run=ready();
-  assert.equal(run(reading('distancia',0)).level.valid,false);
-  run(reading('distancia',12.5));
-  const r=run({kind:'tick'},15000);
-  assert.equal(r.level.value,null); assert.equal(r.status.lowWater,null);
-});
-test('calibration must be confirmed and physically ordered', () => {
-  for(const cfg of [{calibrationConfirmed:false},{emptyCm:5,fullCm:20},{emptyCm:5,fullCm:5}]) {
-    const run=session(cfg); const r=run(reading('distancia',10));
-    assert.equal(r.level.valid,false);
+  assert.equal(run(reading('nivel',0,{retain:true})).status.level,null);
+  for (const payload of [-1,101,'bad',{value:0,unit:'cm',valid:true},{value:0,unit:'percent',valid:false}]) {
+    run(reading('nivel',50));
+    assert.equal(run({kind:'nivel',payload}).status.level,null);
   }
+  run(reading('nivel',10));
+  const r=run({kind:'tick'},15000);
+  assert.equal(r.status.level,null); assert.equal(r.status.lowWater,null);
 });
 test('disconnect disarms, clears readings, and requires explicit rearming', () => {
   const run=ready(); run(reading('temperatura',17)); run({kind:'manual',payload:'ON'});
@@ -98,14 +96,6 @@ test('STOP requests OFF, disarms, and ignores retained manual ON', () => {
   assert.equal(run({kind:'manual',payload:'ON',retain:true}).status.mode,'AUTO');
   const r=run({kind:'stop'});
   assert.equal(r.status.armed,false); assert.equal(r.relay.payload,'0');
-});
-test('shows raw distance before calibration and expires it after 15 seconds', () => {
-  const run=session({calibrationConfirmed:false});
-  const r=run(reading('distancia',12));
-  assert.equal(r.status.distanceCm,12);
-  assert.equal(r.level.valid,false);
-  assert.equal(r.status.lowWater,null);
-  assert.equal(run({kind:'tick'},15000).status.distanceCm,null);
 });
 test('reports live relay messages separately from requests until disconnect', () => {
   const run=ready();

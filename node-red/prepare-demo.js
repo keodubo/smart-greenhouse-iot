@@ -5,21 +5,13 @@ const defaults = require('./flow-config.example.json');
 const {buildFlow} = require('./build-flow');
 const {buildDisplayFlow} = require('./build-display-flow');
 
-const [device = '9', empty, full, ...extra] = process.argv.slice(2);
-if (!/^\d+$/.test(device || '') || extra.length || (empty === undefined) !== (full === undefined)) {
-  throw Error('Uso: node node-red/prepare-demo.js NUMERO_SONOFF [VACIO_CM LLENO_CM]');
+const [device = '9', ...extra] = process.argv.slice(2);
+if (!/^\d+$/.test(device || '') || extra.length) {
+  throw Error('Uso: node node-red/prepare-demo.js NUMERO_SONOFF');
 }
 const config = {...defaults, broker:'broker.hivemq.com', feedbackTopic:'IIoT/'+device+'/relay/0',
   onPayload:'1', offPayload:'0'};
 config.relayTopic = config.feedbackTopic+'/set';
-if (empty !== undefined) {
-  config.emptyCm = Number(empty);
-  config.fullCm = Number(full);
-  if (!(config.emptyCm <= 400 && config.emptyCm > config.fullCm && config.fullCm >= 2)) {
-    throw Error('Medí dos distancias entre 2 y 400 cm. Vacío debe ser mayor que lleno.');
-  }
-  config.calibrationConfirmed = true;
-}
 config.onBelow = Number(process.env.ON_BELOW_C ?? defaults.onBelow);
 config.offAt = Number(process.env.OFF_AT_C ?? defaults.offAt);
 if (!(Number.isFinite(config.onBelow) && Number.isFinite(config.offAt) && config.onBelow < config.offAt)) {
@@ -41,4 +33,4 @@ console.log('Broker: '+config.broker+':'+config.port+' | Sensores: '+config.pref
 console.log('SONOFF '+device+' | Comando: '+config.relayTopic+' | Estado: '+config.feedbackTopic);
 console.log('Automático: ON debajo de '+config.onBelow+' °C, OFF desde '+config.offAt+' °C.');
 console.log('Importá '+file);
-console.log(config.calibrationConfirmed ? 'Nivel calibrado con las medidas indicadas.' : 'Distancia en cm disponible. Nivel pendiente de calibración.');
+console.log('Nivel del Arduino: '+config.prefix+'/nivel (0–100 %).');

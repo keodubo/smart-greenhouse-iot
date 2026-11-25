@@ -1,5 +1,7 @@
 # Smart Greenhouse lab record
 
+For the current immersion-sensor demo, follow [demo.md](demo.md). The ultrasonic wiring and distance-calibration steps below describe the earlier SRF04 setup.
+
 All rows are **pending physical verification**. Fill in during the lab; do not replace pending with expected results.
 
 Date: ______  Operators: ______

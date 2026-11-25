@@ -1,5 +1,7 @@
 # Smart Greenhouse: next-lab setup
 
+For the current immersion-sensor demo, follow [demo.md](demo.md). The ultrasonic wiring and distance-calibration steps below describe the earlier SRF04 setup.
+
 ## Start here
 
 This package implements the approved prototype. **The code is prepared for lab testing; hardware operation is not yet verified.** Use the existing lab hardware and environment. The live Node-RED tab starts disabled, relay control starts disarmed, and the SONOFF mapping is deliberately blank.
