@@ -127,7 +127,8 @@ def run_hardware(config, sensor=None, joystick=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path(__file__).with_name('pi-config.local.json'))
+    parser.add_argument('--config', type=Path)
+    parser.add_argument('--demo', action='store_true', help='Usar la configuración de la demo con sensores y joystick')
     parser.add_argument('--check-config', action='store_true', help='Validate configuration without hardware/network access')
     parser.add_argument('--simulate', action='store_true', help='Print labelled example measurements offline')
     parser.add_argument('--sensor', choices=['temperatura', 'humedad', 'ambos'],
@@ -140,14 +141,27 @@ def main():
             print(json.dumps({'simulation': True, 'temperatura': measurement(17, 'C'),
                               'humedad': measurement(55, 'percent')}))
         return
+    directory = Path(__file__).resolve().parent
+    demo_config = directory / 'demo-pi.local.json'
+    if args.demo:
+        args.sensor = args.sensor or 'ambos'
+        args.joystick = True
+    config_path = args.config
+    if config_path is None:
+        config_path = directory / 'pi-config.local.json'
+        if args.demo or (not config_path.exists() and demo_config.exists()):
+            config_path = demo_config
+    elif not config_path.is_absolute() and not config_path.exists():
+        if config_path.parent in (Path('.'), Path('raspberry-pi')):
+            config_path = directory / config_path.name
     try:
-        config = validate_config(json.loads(args.config.read_text()))
+        config = validate_config(json.loads(config_path.read_text()))
     except FileNotFoundError:
-        if args.sensor is None or args.config != Path(__file__).with_name('pi-config.local.json'):
-            parser.error('Falta el archivo de configuración local.')
+        if args.config is not None or args.demo or args.sensor is None:
+            parser.error(f'No se encontró {config_path.resolve()}. Para generar la configuración de la demo, ejecutá bash preparar-demo.sh 9 desde el repositorio.')
         config = {'broker': 'broker.hivemq.com', 'port': 1883, 'prefix': 'IIoT/grupo99', 'client_id': ''}
-    except (OSError, ValueError, TypeError, AttributeError):
-        parser.error('Invalid/missing local configuration. Copy pi-config.example.json and fill in the documented fields.')
+    except (OSError, ValueError, TypeError, AttributeError) as error:
+        parser.error(f'No se pudo cargar {config_path.resolve()}: {error}')
     if args.check_config:
         print('Configuration valid. No hardware/network access performed.')
         return

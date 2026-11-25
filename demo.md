@@ -31,7 +31,7 @@ Esperá el mensaje **Python listo**. Necesitás Node.js, Node-RED, Python con ve
 En la terminal del repositorio ejecutá el siguiente comando y dejalo corriendo.
 
 ```bash
-raspberry-pi/.venv/bin/python raspberry-pi/greenhouse.py --config raspberry-pi/demo-pi.local.json --sensor ambos --joystick
+raspberry-pi/.venv/bin/python raspberry-pi/greenhouse.py --demo
 ```
 
 1. Esperá **MQTT connected**. En Node-RED abrí **Debug** (insecto), expandí **LIVE full status** y buscá `temperature` y `humidity`. El Sense HAT publica cada cinco segundos. La matriz muestra las lecturas recibidas por MQTT aproximadamente cada diez segundos.
