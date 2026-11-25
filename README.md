@@ -4,6 +4,10 @@ El grupo confirmó en el laboratorio el 25 de noviembre de 2026 que funciona la 
 
 **Flow para importar:** [demo-arduino-grupo99.json](node-red/demo-arduino-grupo99.json). El dashboard permite consultar sensores, controlar el SONOFF y ajustar los umbrales. Para actualizar una demo desplegada, importá el JSON actualizado en Node-RED. Para preparar otra Raspberry, seguí el [manual de la demo](demo-arduino.md).
 
+![Dashboard de la demo en Chrome con lecturas MQTT simuladas](dashboard-preview.png)
+
+*Vista de ejemplo con lecturas simuladas en un broker MQTT local.*
+
 | Componente | Configuración probada |
 | --- | --- |
 | Broker | `broker.hivemq.com:1883` |
