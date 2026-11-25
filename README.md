@@ -2,7 +2,7 @@
 
 El grupo confirmó en el laboratorio el 25 de noviembre de 2026 que funciona la demo con el Arduino como fuente de temperatura, humedad y nivel, la Raspberry 16 con Node-RED y el SONOFF 9 por MQTT.
 
-**Flow para importar:** [demo-arduino-grupo99.json](node-red/demo-arduino-grupo99.json). Si la demo ya está desplegada, basta con actualizar el repositorio. Para preparar otra Raspberry, seguí el [manual de la demo](demo-arduino.md).
+**Flow para importar:** [demo-arduino-grupo99.json](node-red/demo-arduino-grupo99.json). El dashboard permite consultar sensores, controlar el SONOFF y ajustar los umbrales. Para actualizar una demo desplegada, importá el JSON actualizado en Node-RED. Para preparar otra Raspberry, seguí el [manual de la demo](demo-arduino.md).
 
 | Componente | Configuración probada |
 | --- | --- |

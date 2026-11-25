@@ -117,7 +117,7 @@
     "x": 400,
     "y": 140,
     "outputs": 2,
-    "func": "function reading(payload,kind) {\n  let value;\n  try { value=JSON.parse(payload); } catch { return null; }\n  if (kind==='nivel' && value && typeof value==='object' && value.valid===true && value.unit==='percent') value=value.value;\n  const min=kind==='temperatura'?-40:0;\n  return Number.isFinite(value) && value>=min && value<=100 ? value : null;\n}\nif (msg.retain) return null;\nconst now=Date.now(), data=flow.get('samples') || {};\nif (msg.topic) {\n  const kind=msg.topic.split('/').pop();\n  const value=reading(msg.payload,kind);\n  if (value===null && kind!=='nivel') return null;\n  data[kind]={value,at:now};\n  flow.set('samples',data);\n}\nconst status={};\nfor (const k of ['temperatura','humedad','nivel']) status[k]=data[k] && now-data[k].at<15000 ? data[k].value : null;\nflow.set('status',status);\nconst level=status.nivel;\nconst color=level===null?'off':level<20?'red':level>=25?'green':context.get('color')==='red'?'red':'green';\nconst changed=color!==context.get('color');\ncontext.set('color',color);\nreturn [changed?{payload:color}:null,msg.topic?{payload:status}:null];",
+    "func": "function reading(payload,kind) {\n  let value;\n  try { value=JSON.parse(payload); } catch { return null; }\n  if (kind==='nivel' && value && typeof value==='object' && value.valid===true && value.unit==='percent') value=value.value;\n  const min=kind==='temperatura'?-40:0;\n  return Number.isFinite(value) && value>=min && value<=100 ? value : null;\n}\nif (msg.retain) return null;\nconst now=Date.now(), data=flow.get('samples') || {};\nif (msg.topic) {\n  const kind=msg.topic.split('/').pop();\n  const value=reading(msg.payload,kind);\n  if (value===null && kind!=='nivel') return null;\n  data[kind]={value,at:now};\n  flow.set('samples',data);\n}\nconst status={};\nfor (const k of ['temperatura','humedad','nivel']) status[k]=data[k] && now-data[k].at<15000 ? data[k].value : null;\nflow.set('status',status);\nconst level=status.nivel;\nconst settings=global.get('arduino99Settings') || {\"on\":25,\"off\":24.5,\"low\":20,\"clear\":25};\nconst color=level===null?'off':level<settings.low?'red':level>=settings.clear?'green':context.get('color')==='red'?'red':'green';\nflow.set('waterColor',color);\nconst changed=color!==context.get('color');\ncontext.set('color',color);\nreturn [changed?{payload:color}:null,msg.topic?{payload:status}:null];",
     "initialize": "flow.set('samples',{}); flow.set('status',{}); context.set('color',null);",
     "wires": [
       [
@@ -217,7 +217,7 @@
     "fieldType": "msg",
     "format": "html",
     "syntax": "plain",
-    "template": "<!doctype html>\n<html lang=\"es\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Invernadero · Grupo 99</title>\n<style>body{font:1.2rem system-ui,sans-serif;color:#18392c;background:#f4f7f3;max-width:44rem;margin:8vh auto;padding:1rem}dl{padding:1.5rem;background:white;border-radius:.6rem}dd{font-size:2rem;margin:0 0 1rem}output{font-variant-numeric:tabular-nums}</style>\n<h1>Invernadero · Grupo 99</h1><dl><dt>Temperatura</dt><dd><output id=\"temperatura\">—</output> °C</dd><dt>Humedad</dt><dd><output id=\"humedad\">—</output> %</dd><dt>Nivel de agua</dt><dd><output id=\"nivel\">—</output> %</dd></dl>\n<script>\nasync function update(){\n  let data={};\n  try { const r=await fetch('/ui/datos',{cache:'no-store'}); if(r.ok)data=await r.json(); } catch {}\n  for(const k of ['temperatura','humedad','nivel']) document.getElementById(k).textContent=Number.isFinite(data[k])?data[k].toLocaleString('es-ES'):'—';\n  setTimeout(update,1000);\n}\nupdate();\n</script></html>\n",
+    "template": "<!doctype html>\n<html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Invernadero · Grupo 99</title>\n<style>\n:root{color-scheme:light;font:16px \"Source Sans 3\",system-ui,sans-serif;color:#193d32;background:#f5f5ed}\n*{box-sizing:border-box}body{margin:0}header{background:#153e33;color:#faf8e9;padding:1.1rem max(5vw,1rem);display:flex;align-items:center;justify-content:space-between;gap:1rem}header span{font-weight:700}#connection{font-size:.9rem;color:#d2ecc9}\nmain{max-width:1050px;margin:auto;padding:clamp(1rem,4vw,3rem)}h1{font:normal clamp(2.6rem,7vw,5rem)/1.1 Georgia,serif;letter-spacing:-.045em;margin:.25em 0 .4em}h2{font-size:1.25rem;margin:0 0 1rem}.cards,.columns{display:grid;gap:1rem}.cards{grid-template-columns:repeat(3,1fr);margin-bottom:1rem}.columns{grid-template-columns:.95fr 1.25fr}.card,section{background:#fffffa;border:1px solid #cdd7cb;border-radius:12px;padding:clamp(1rem,3vw,1.6rem)}\n.card b{display:block;font-size:.95rem}.metric{margin:.5rem 0 0;font-size:clamp(1.8rem,4vw,3.35rem);font-variant-numeric:tabular-nums;line-height:1.15}.metric small{font-size:.43em;color:#567065}#water{font-size:.85rem}.row{display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;border-bottom:1px solid #dce3d8;padding:.6rem 0}.row strong{text-align:right}.actions{display:flex;gap:.4rem;flex-wrap:wrap;margin:1.2rem 0}.hint,footer{font-size:.87rem;color:#51665a;line-height:1.5}\nbutton,input{font:inherit;border:1px solid #a5b5a6;border-radius:6px;padding:.55rem .75rem;background:white;color:inherit}button{cursor:pointer;font-weight:600}button.primary,button[aria-pressed=true]{background:#20523f;color:white;border-color:#20523f}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible{outline:3px solid #b57625;outline-offset:2px}fieldset{border:0;padding:0;margin:0 0 1rem}legend{font-weight:650;margin-bottom:.4rem}.fields{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}label{font-size:.9rem}input{display:block;width:100%;margin-top:.25rem}.message{min-height:1.4em;color:#345b44}footer{margin:1rem 0} @media(max-width:700px){.columns{grid-template-columns:1fr}.cards{gap:.35rem}.card{padding:.65rem}.card b{font-size:.8rem}}\n</style></head><body>\n<header><span>Grupo 99 · Raspberry 16</span><strong id=\"connection\">Conectando…</strong></header>\n<main><h1>Invernadero</h1>\n<div class=\"cards\">\n<div class=\"card\"><b>Temperatura</b><div class=\"metric\"><output id=\"temperatura\">—</output> <small>°C</small></div></div>\n<div class=\"card\"><b>Humedad</b><div class=\"metric\"><output id=\"humedad\">—</output> <small>%</small></div></div>\n<div class=\"card\"><b>Nivel de agua</b><div class=\"metric\"><output id=\"nivel\">—</output> <small>%</small></div><span id=\"water\"></span></div></div>\n<div class=\"columns\"><section><h2>Lámpara · SONOFF 9</h2>\n<div class=\"row\">Modo<strong id=\"mode\">—</strong></div><div class=\"row\">Orden enviada<strong id=\"requested\">—</strong></div><div class=\"row\">Último informe del relé<strong id=\"report\">—</strong></div>\n<div class=\"actions\"><button type=\"button\" data-mode=\"auto\" disabled>Automático</button><button type=\"button\" data-mode=\"on\" disabled>Encender</button><button type=\"button\" data-mode=\"off\" disabled>Apagar</button></div>\n<p class=\"hint\">Encender y apagar activan el modo manual. Pulsá Automático para volver al control por temperatura.</p><div id=\"control-msg\" role=\"status\" class=\"message\"></div></section>\n<section><h2>Configuración</h2><form id=\"settings\"><fieldset><legend>Temperatura de la lámpara</legend><div class=\"fields\"><label>Encender por encima de (°C)<input required disabled type=\"number\" id=\"on\" step=\"any\" min=\"-40\" max=\"100\"></label><label>Apagar a partir de este valor o por debajo (°C)<input required disabled type=\"number\" id=\"off\" step=\"any\" min=\"-40\" max=\"100\"></label></div></fieldset>\n<fieldset><legend>Indicador de agua</legend><div class=\"fields\"><label>Alerta por debajo de (%)<input required disabled type=\"number\" id=\"low\" step=\"any\" min=\"0\" max=\"100\"></label><label>Recuperado desde (%)<input required disabled type=\"number\" id=\"clear\" step=\"any\" min=\"0\" max=\"100\"></label></div></fieldset>\n<button class=\"primary\" id=\"save\" disabled>Aplicar umbrales</button></form><div id=\"settings-msg\" role=\"status\" class=\"message\"></div><p class=\"hint\">Los cambios se aplican al controlador y a la matriz. Con la configuración estándar de Node-RED, duran hasta reiniciar el servicio.</p></section></div>\n<footer>Arduino → HiveMQ → Raspberry 16 · Una lectura vence después de 15 segundos.</footer></main>\n<script>\nconst el=id=>document.getElementById(id), keys=['on','off','low','clear'], modes={auto:'Automático',on:'Manual · encender',off:'Manual · apagar'};\nconst stateText=v=>v==='1'?'Encendida':v==='0'?'Apagada':'—';\nlet editing=false,busy=false,current=null;\nfunction render(data){\n  current=data;\n  const lamp=data?.lamp||{};\n  el('connection').textContent=data?(lamp.connected?'MQTT conectado':'MQTT desconectado'):'Panel sin conexión';\n  for(const k of ['temperatura','humedad','nivel']) el(k).textContent=Number.isFinite(data?.samples?.[k])?data.samples[k].toLocaleString('es-ES'):'—';\n  el('water').textContent=({red:'Nivel bajo',green:'Nivel normal'})[data?.water]||'Sin lectura';\n  el('mode').textContent=modes[lamp.mode]||'—';el('requested').textContent=stateText(lamp.requested);\n  el('report').textContent=data?.report?stateText(data.report.value)+' · '+new Date(data.report.at).toLocaleTimeString('es-ES'):'Sin informe';\n  for(const b of document.querySelectorAll('[data-mode]')){\n    b.disabled=busy||!lamp.connected||(b.dataset.mode==='on'&&!lamp.fresh);\n    b.setAttribute('aria-pressed',String(lamp.mode===b.dataset.mode));\n  }\n  for(const k of keys){el(k).disabled=!data||busy;if(!editing&&data)el(k).value=data.settings[k];}\n  el('save').disabled=!data||busy;\n}\nasync function refresh(){\n  try{const r=await fetch('/ui/panel',{cache:'no-store'});if(!r.ok)throw Error();render(await r.json());}\n  catch{render(null);}\n}\nasync function send(body,where){\n  if(busy)return;\n  busy=true;render(current);where.textContent='';\n  try{const r=await fetch('/ui/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\n    const data=await r.json();where.textContent=data.message;if(r.ok&&body.action==='settings')editing=false;\n  }catch{where.textContent='No se pudo confirmar el cambio. Revisá la conexión.';}\n  finally{await refresh();busy=false;render(current);}\n}\nfor(const b of document.querySelectorAll('[data-mode]')) b.onclick=()=>send({action:b.dataset.mode},el('control-msg'));\nel('settings').oninput=()=>{editing=true;};\nel('settings').onsubmit=e=>{e.preventDefault();send({action:'settings',...Object.fromEntries(keys.map(k=>[k,el(k).valueAsNumber]))},el('settings-msg'));};\n(async function poll(){if(!busy)await refresh();setTimeout(poll,1000);})();\n</script></body></html>\n",
     "output": "str",
     "wires": [
       [
@@ -259,6 +259,60 @@
     "name": "Datos",
     "x": 700,
     "y": 410,
+    "wires": []
+  },
+  {
+    "id": "arduino99-panel-state",
+    "z": "arduino99-panel",
+    "type": "http in",
+    "name": "GET /ui/panel",
+    "x": 120,
+    "y": 490,
+    "method": "get",
+    "url": "/ui/panel",
+    "wires": [
+      [
+        "arduino99-snapshot"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-snapshot",
+    "z": "arduino99-panel",
+    "type": "function",
+    "name": "Estado del panel",
+    "x": 400,
+    "y": 490,
+    "outputs": 1,
+    "func": "\nmsg.payload={samples:flow.get('status') || {},water:flow.get('waterColor') || 'off',\n  settings:global.get('arduino99Settings') || {\"on\":25,\"off\":24.5,\"low\":20,\"clear\":25},\n  lamp:global.get('arduino99Lamp') || {},report:global.get('arduino99Report') || null};\nmsg.headers={'Cache-Control':'no-store'};\nreturn msg;",
+    "wires": [
+      [
+        "arduino99-data-response"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-action",
+    "z": "arduino99-lamp",
+    "type": "http in",
+    "name": "POST /ui/control",
+    "x": 130,
+    "y": 430,
+    "method": "post",
+    "url": "/ui/control",
+    "wires": [
+      [
+        "arduino99-control"
+      ]
+    ]
+  },
+  {
+    "id": "arduino99-reply",
+    "z": "arduino99-lamp",
+    "type": "http response",
+    "name": "Resultado",
+    "x": 700,
+    "y": 420,
     "wires": []
   },
   {
@@ -324,15 +378,18 @@
     "id": "arduino99-control",
     "z": "arduino99-lamp",
     "type": "function",
-    "name": "ON > 25 · OFF ≤ 24,5",
+    "name": "Control de temperatura y panel",
     "x": 420,
     "y": 130,
-    "outputs": 1,
-    "initialize": "context.set('last',null); context.set('at',0); context.set('connected',false);",
-    "func": "function reading(payload,kind) {\n  let value;\n  try { value=JSON.parse(payload); } catch { return null; }\n  if (kind==='nivel' && value && typeof value==='object' && value.valid===true && value.unit==='percent') value=value.value;\n  const min=kind==='temperatura'?-40:0;\n  return Number.isFinite(value) && value>=min && value<=100 ? value : null;\n}\nif(msg.status){\n  const connected=msg.status.fill==='green';\n  if(connected!==context.get('connected')){context.set('last',null);context.set('at',0);}\n  context.set('connected',connected);\n}\nif(!context.get('connected') || msg.retain) return null;\nlet next=context.get('last') || '0';\nif(msg.topic){\n  const t=reading(msg.payload,'temperatura');\n  if(t===null) return null;\n  context.set('at',Date.now());\n  if(t>25) next='1';\n  else if(t<=24.5) next='0';\n}\nif(Date.now()-context.get('at')>=15000) next='0';\nif(next===context.get('last')) return null;\ncontext.set('last',next);\nnode.status({fill:next==='1'?'green':'grey',shape:'dot',text:next==='1'?'Orden ON':'Orden OFF'});\nreturn {payload:next};",
+    "outputs": 2,
+    "initialize": "context.set('at',0); context.set('last',null); context.set('mode','auto'); context.set('connected',false); global.set('arduino99Report',null); global.set('arduino99Lamp',{});",
+    "func": "function reading(payload,kind) {\n  let value;\n  try { value=JSON.parse(payload); } catch { return null; }\n  if (kind==='nivel' && value && typeof value==='object' && value.valid===true && value.unit==='percent') value=value.value;\n  const min=kind==='temperatura'?-40:0;\n  return Number.isFinite(value) && value>=min && value<=100 ? value : null;\n}\nlet mode=context.get('mode') || 'auto';\nlet last=context.get('last');\nlet connected=context.get('connected');\nlet settings=global.get('arduino99Settings') || {\"on\":25,\"off\":24.5,\"low\":20,\"clear\":25};\nconst respond=(code,message)=>{msg.statusCode=code;msg.payload={message};return msg;};\nif(msg.status){\n  const online=msg.status.fill==='green';\n  if(online!==connected){\n    connected=online; last=null; mode='auto';\n    context.set('connected',online);context.set('at',0);\n    global.set('arduino99Report',null);\n  }\n}\nif(msg.topic && !msg.retain){\n  const t=reading(msg.payload,'temperatura');\n  if(t!==null){context.set('temperature',t);context.set('at',Date.now());}\n}\nconst fresh=Date.now()-context.get('at')<15000;\nlet reply=null;\nlet force=false;\nif(msg.req){\n  if(!msg.req.is('application/json')) return [null,respond(415,'Se requiere JSON.')];\n  const body=msg.payload || {};\n  if(body.action==='settings'){\n    const {on,off,low,clear}=body;\n    if(![on,off,low,clear].every(Number.isFinite) || off < -40 || on > 100 || off>=on ||\n       low<0 || clear>100 || low>=clear) return [null,respond(400,'Revisá el orden y el rango de los umbrales.')];\n    settings={on,off,low,clear};global.set('arduino99Settings',settings);\n  }else if(['auto','on','off'].includes(body.action)){\n    if(!connected || (body.action==='on' && !fresh)) return [null,respond(409,'Se necesita conexión y, para encender, temperatura vigente.')];\n    mode=body.action;force=mode!=='auto';\n  }else return [null,respond(400,'Acción desconocida.')];\n  reply=respond(200,'Cambio aplicado.');\n}\nlet next=last || '0';\nif(!fresh){next='0';if(mode==='on') mode='auto';}\nelse if(mode==='off') next='0';\nelse if(mode==='on') next='1';\nelse if(context.get('temperature')>settings.on) next='1';\nelse if(context.get('temperature')<=settings.off) next='0';\nconst command=connected && (next!==last || force) ? {payload:next} : null;\ncontext.set('last',connected?next:null);context.set('mode',mode);\nglobal.set('arduino99Lamp',{connected,mode,requested:connected?next:null,fresh});\nnode.status({fill:connected?'green':'grey',shape:'dot',text:connected?mode+' / '+next:'Sin conexión'});\nreturn [command,reply];",
     "wires": [
       [
         "arduino99-command"
+      ],
+      [
+        "arduino99-reply"
       ]
     ]
   },
@@ -362,9 +419,21 @@
     "datatype": "utf8",
     "wires": [
       [
-        "arduino99-report"
+        "arduino99-report",
+        "arduino99-feedback"
       ]
     ]
+  },
+  {
+    "id": "arduino99-feedback",
+    "z": "arduino99-lamp",
+    "type": "function",
+    "name": "Último estado informado",
+    "x": 480,
+    "y": 360,
+    "outputs": 0,
+    "func": "if(!msg.retain && ['0','1'].includes(msg.payload)) global.set('arduino99Report',{value:msg.payload,at:Date.now()}); return null;",
+    "wires": []
   },
   {
     "id": "arduino99-report",

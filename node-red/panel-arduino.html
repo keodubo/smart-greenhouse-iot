@@ -1,13 +1,59 @@
 <!doctype html>
-<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invernadero · Grupo 99</title>
-<style>body{font:1.2rem system-ui,sans-serif;color:#18392c;background:#f4f7f3;max-width:44rem;margin:8vh auto;padding:1rem}dl{padding:1.5rem;background:white;border-radius:.6rem}dd{font-size:2rem;margin:0 0 1rem}output{font-variant-numeric:tabular-nums}</style>
-<h1>Invernadero · Grupo 99</h1><dl><dt>Temperatura</dt><dd><output id="temperatura">—</output> °C</dd><dt>Humedad</dt><dd><output id="humedad">—</output> %</dd><dt>Nivel de agua</dt><dd><output id="nivel">—</output> %</dd></dl>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invernadero · Grupo 99</title>
+<style>
+:root{color-scheme:light;font:16px "Source Sans 3",system-ui,sans-serif;color:#193d32;background:#f5f5ed}
+*{box-sizing:border-box}body{margin:0}header{background:#153e33;color:#faf8e9;padding:1.1rem max(5vw,1rem);display:flex;align-items:center;justify-content:space-between;gap:1rem}header span{font-weight:700}#connection{font-size:.9rem;color:#d2ecc9}
+main{max-width:1050px;margin:auto;padding:clamp(1rem,4vw,3rem)}h1{font:normal clamp(2.6rem,7vw,5rem)/1.1 Georgia,serif;letter-spacing:-.045em;margin:.25em 0 .4em}h2{font-size:1.25rem;margin:0 0 1rem}.cards,.columns{display:grid;gap:1rem}.cards{grid-template-columns:repeat(3,1fr);margin-bottom:1rem}.columns{grid-template-columns:.95fr 1.25fr}.card,section{background:#fffffa;border:1px solid #cdd7cb;border-radius:12px;padding:clamp(1rem,3vw,1.6rem)}
+.card b{display:block;font-size:.95rem}.metric{margin:.5rem 0 0;font-size:clamp(1.8rem,4vw,3.35rem);font-variant-numeric:tabular-nums;line-height:1.15}.metric small{font-size:.43em;color:#567065}#water{font-size:.85rem}.row{display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;border-bottom:1px solid #dce3d8;padding:.6rem 0}.row strong{text-align:right}.actions{display:flex;gap:.4rem;flex-wrap:wrap;margin:1.2rem 0}.hint,footer{font-size:.87rem;color:#51665a;line-height:1.5}
+button,input{font:inherit;border:1px solid #a5b5a6;border-radius:6px;padding:.55rem .75rem;background:white;color:inherit}button{cursor:pointer;font-weight:600}button.primary,button[aria-pressed=true]{background:#20523f;color:white;border-color:#20523f}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible{outline:3px solid #b57625;outline-offset:2px}fieldset{border:0;padding:0;margin:0 0 1rem}legend{font-weight:650;margin-bottom:.4rem}.fields{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}label{font-size:.9rem}input{display:block;width:100%;margin-top:.25rem}.message{min-height:1.4em;color:#345b44}footer{margin:1rem 0} @media(max-width:700px){.columns{grid-template-columns:1fr}.cards{gap:.35rem}.card{padding:.65rem}.card b{font-size:.8rem}}
+</style></head><body>
+<header><span>Grupo 99 · Raspberry 16</span><strong id="connection">Conectando…</strong></header>
+<main><h1>Invernadero</h1>
+<div class="cards">
+<div class="card"><b>Temperatura</b><div class="metric"><output id="temperatura">—</output> <small>°C</small></div></div>
+<div class="card"><b>Humedad</b><div class="metric"><output id="humedad">—</output> <small>%</small></div></div>
+<div class="card"><b>Nivel de agua</b><div class="metric"><output id="nivel">—</output> <small>%</small></div><span id="water"></span></div></div>
+<div class="columns"><section><h2>Lámpara · SONOFF 9</h2>
+<div class="row">Modo<strong id="mode">—</strong></div><div class="row">Orden enviada<strong id="requested">—</strong></div><div class="row">Último informe del relé<strong id="report">—</strong></div>
+<div class="actions"><button type="button" data-mode="auto" disabled>Automático</button><button type="button" data-mode="on" disabled>Encender</button><button type="button" data-mode="off" disabled>Apagar</button></div>
+<p class="hint">Encender y apagar activan el modo manual. Pulsá Automático para volver al control por temperatura.</p><div id="control-msg" role="status" class="message"></div></section>
+<section><h2>Configuración</h2><form id="settings"><fieldset><legend>Temperatura de la lámpara</legend><div class="fields"><label>Encender por encima de (°C)<input required disabled type="number" id="on" step="any" min="-40" max="100"></label><label>Apagar a partir de este valor o por debajo (°C)<input required disabled type="number" id="off" step="any" min="-40" max="100"></label></div></fieldset>
+<fieldset><legend>Indicador de agua</legend><div class="fields"><label>Alerta por debajo de (%)<input required disabled type="number" id="low" step="any" min="0" max="100"></label><label>Recuperado desde (%)<input required disabled type="number" id="clear" step="any" min="0" max="100"></label></div></fieldset>
+<button class="primary" id="save" disabled>Aplicar umbrales</button></form><div id="settings-msg" role="status" class="message"></div><p class="hint">Los cambios se aplican al controlador y a la matriz. Con la configuración estándar de Node-RED, duran hasta reiniciar el servicio.</p></section></div>
+<footer>Arduino → HiveMQ → Raspberry 16 · Una lectura vence después de 15 segundos.</footer></main>
 <script>
-async function update(){
-  let data={};
-  try { const r=await fetch('/ui/datos',{cache:'no-store'}); if(r.ok)data=await r.json(); } catch {}
-  for(const k of ['temperatura','humedad','nivel']) document.getElementById(k).textContent=Number.isFinite(data[k])?data[k].toLocaleString('es-ES'):'—';
-  setTimeout(update,1000);
+const el=id=>document.getElementById(id), keys=['on','off','low','clear'], modes={auto:'Automático',on:'Manual · encender',off:'Manual · apagar'};
+const stateText=v=>v==='1'?'Encendida':v==='0'?'Apagada':'—';
+let editing=false,busy=false,current=null;
+function render(data){
+  current=data;
+  const lamp=data?.lamp||{};
+  el('connection').textContent=data?(lamp.connected?'MQTT conectado':'MQTT desconectado'):'Panel sin conexión';
+  for(const k of ['temperatura','humedad','nivel']) el(k).textContent=Number.isFinite(data?.samples?.[k])?data.samples[k].toLocaleString('es-ES'):'—';
+  el('water').textContent=({red:'Nivel bajo',green:'Nivel normal'})[data?.water]||'Sin lectura';
+  el('mode').textContent=modes[lamp.mode]||'—';el('requested').textContent=stateText(lamp.requested);
+  el('report').textContent=data?.report?stateText(data.report.value)+' · '+new Date(data.report.at).toLocaleTimeString('es-ES'):'Sin informe';
+  for(const b of document.querySelectorAll('[data-mode]')){
+    b.disabled=busy||!lamp.connected||(b.dataset.mode==='on'&&!lamp.fresh);
+    b.setAttribute('aria-pressed',String(lamp.mode===b.dataset.mode));
+  }
+  for(const k of keys){el(k).disabled=!data||busy;if(!editing&&data)el(k).value=data.settings[k];}
+  el('save').disabled=!data||busy;
 }
-update();
-</script></html>
+async function refresh(){
+  try{const r=await fetch('/ui/panel',{cache:'no-store'});if(!r.ok)throw Error();render(await r.json());}
+  catch{render(null);}
+}
+async function send(body,where){
+  if(busy)return;
+  busy=true;render(current);where.textContent='';
+  try{const r=await fetch('/ui/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await r.json();where.textContent=data.message;if(r.ok&&body.action==='settings')editing=false;
+  }catch{where.textContent='No se pudo confirmar el cambio. Revisá la conexión.';}
+  finally{await refresh();busy=false;render(current);}
+}
+for(const b of document.querySelectorAll('[data-mode]')) b.onclick=()=>send({action:b.dataset.mode},el('control-msg'));
+el('settings').oninput=()=>{editing=true;};
+el('settings').onsubmit=e=>{e.preventDefault();send({action:'settings',...Object.fromEntries(keys.map(k=>[k,el(k).valueAsNumber]))},el('settings-msg'));};
+(async function poll(){if(!busy)await refresh();setTimeout(poll,1000);})();
+</script></body></html>

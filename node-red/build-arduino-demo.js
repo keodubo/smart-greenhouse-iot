@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const board = 'arduino99-panel', lamp = 'arduino99-lamp', broker = 'arduino99-broker';
 const prefix = 'IIoT/grupo99/';
+const defaults = {on:25, off:24.5, low:20, clear:25};
 const nodes = [
   {id:board,type:'tab',label:'Dashboard & SenseHAT · Arduino',disabled:false},
   {id:lamp,type:'tab',label:'Arduino → SONOFF 9',disabled:false},
@@ -42,7 +43,9 @@ const status={};
 for (const k of ['temperatura','humedad','nivel']) status[k]=data[k] && now-data[k].at<15000 ? data[k].value : null;
 flow.set('status',status);
 const level=status.nivel;
-const color=level===null?'off':level<20?'red':level>=25?'green':context.get('color')==='red'?'red':'green';
+const settings=global.get('arduino99Settings') || ${JSON.stringify(defaults)};
+const color=level===null?'off':level<settings.low?'red':level>=settings.clear?'green':context.get('color')==='red'?'red':'green';
+flow.set('waterColor',color);
 const changed=color!==context.get('color');
 context.set('color',color);
 return [changed?{payload:color}:null,msg.topic?{payload:status}:null];`,initialize:"flow.set('samples',{}); flow.set('status',{}); context.set('color',null);"},[['led'],['debug']]);
@@ -58,30 +61,68 @@ add(board,'html','template','Panel del invernadero',400,330,{field:'payload',fie
 add(board,'page-response','http response','Página',700,330,{headers:{'Content-Type':'text/html; charset=utf-8'}});
 add(board,'json','function','Valores actuales',400,410,{outputs:1,func:"msg.payload=flow.get('status') || {}; msg.headers={'Cache-Control':'no-store'}; return msg;"},[['data-response']]);
 add(board,'data-response','http response','Datos',700,410,{});
+add(board,'panel-state','http in','GET /ui/panel',120,490,{method:'get',url:'/ui/panel'},[['snapshot']]);
+add(board,'snapshot','function','Estado del panel',400,490,{outputs:1,func:`
+msg.payload={samples:flow.get('status') || {},water:flow.get('waterColor') || 'off',
+  settings:global.get('arduino99Settings') || ${JSON.stringify(defaults)},
+  lamp:global.get('arduino99Lamp') || {},report:global.get('arduino99Report') || null};
+msg.headers={'Cache-Control':'no-store'};
+return msg;`},[['data-response']]);
+add(lamp,'action','http in','POST /ui/control',130,430,{method:'post',url:'/ui/control'},[['control']]);
+add(lamp,'reply','http response','Resultado',700,420,{});
 sensor(lamp,'lamp-temp','temperatura',130,80,'control');
 timer(lamp,'lamp-timer','control',130,160);
 add(lamp,'connection','status','Conexión a HiveMQ',130,230,{scope:['arduino99-lamp-temp']},[['control']]);
-add(lamp,'control','function','ON > 25 · OFF ≤ 24,5',420,130,{outputs:1,initialize:"context.set('last',null); context.set('at',0); context.set('connected',false);",func:reading.toString()+`
+add(lamp,'control','function','Control de temperatura y panel',420,130,{outputs:2,
+  initialize:"context.set('at',0); context.set('last',null); context.set('mode','auto'); context.set('connected',false); global.set('arduino99Report',null); global.set('arduino99Lamp',{});",
+  func:reading.toString()+`
+let mode=context.get('mode') || 'auto';
+let last=context.get('last');
+let connected=context.get('connected');
+let settings=global.get('arduino99Settings') || ${JSON.stringify(defaults)};
+const respond=(code,message)=>{msg.statusCode=code;msg.payload={message};return msg;};
 if(msg.status){
-  const connected=msg.status.fill==='green';
-  if(connected!==context.get('connected')){context.set('last',null);context.set('at',0);}
-  context.set('connected',connected);
+  const online=msg.status.fill==='green';
+  if(online!==connected){
+    connected=online; last=null; mode='auto';
+    context.set('connected',online);context.set('at',0);
+    global.set('arduino99Report',null);
+  }
 }
-if(!context.get('connected') || msg.retain) return null;
-let next=context.get('last') || '0';
-if(msg.topic){
+if(msg.topic && !msg.retain){
   const t=reading(msg.payload,'temperatura');
-  if(t===null) return null;
-  context.set('at',Date.now());
-  if(t>25) next='1';
-  else if(t<=24.5) next='0';
+  if(t!==null){context.set('temperature',t);context.set('at',Date.now());}
 }
-if(Date.now()-context.get('at')>=15000) next='0';
-if(next===context.get('last')) return null;
-context.set('last',next);
-node.status({fill:next==='1'?'green':'grey',shape:'dot',text:next==='1'?'Orden ON':'Orden OFF'});
-return {payload:next};`},[['command']]);
+const fresh=Date.now()-context.get('at')<15000;
+let reply=null;
+let force=false;
+if(msg.req){
+  if(!msg.req.is('application/json')) return [null,respond(415,'Se requiere JSON.')];
+  const body=msg.payload || {};
+  if(body.action==='settings'){
+    const {on,off,low,clear}=body;
+    if(![on,off,low,clear].every(Number.isFinite) || off < -40 || on > 100 || off>=on ||
+       low<0 || clear>100 || low>=clear) return [null,respond(400,'Revisá el orden y el rango de los umbrales.')];
+    settings={on,off,low,clear};global.set('arduino99Settings',settings);
+  }else if(['auto','on','off'].includes(body.action)){
+    if(!connected || (body.action==='on' && !fresh)) return [null,respond(409,'Se necesita conexión y, para encender, temperatura vigente.')];
+    mode=body.action;force=mode!=='auto';
+  }else return [null,respond(400,'Acción desconocida.')];
+  reply=respond(200,'Cambio aplicado.');
+}
+let next=last || '0';
+if(!fresh){next='0';if(mode==='on') mode='auto';}
+else if(mode==='off') next='0';
+else if(mode==='on') next='1';
+else if(context.get('temperature')>settings.on) next='1';
+else if(context.get('temperature')<=settings.off) next='0';
+const command=connected && (next!==last || force) ? {payload:next} : null;
+context.set('last',connected?next:null);context.set('mode',mode);
+global.set('arduino99Lamp',{connected,mode,requested:connected?next:null,fresh});
+node.status({fill:connected?'green':'grey',shape:'dot',text:connected?mode+' / '+next:'Sin conexión'});
+return [command,reply];`},[['command'],['reply']]);
 add(lamp,'command','mqtt out','SONOFF 9',700,130,{broker,topic:'IIoT/9/relay/0/set',qos:'0',retain:'false'});
-add(lamp,'relay','mqtt in','Estado SONOFF 9',130,320,{broker,topic:'IIoT/9/relay/0',qos:'0',datatype:'utf8'},[['report']]);
+add(lamp,'relay','mqtt in','Estado SONOFF 9',130,320,{broker,topic:'IIoT/9/relay/0',qos:'0',datatype:'utf8'},[['report','feedback']]);
+add(lamp,'feedback','function','Último estado informado',480,360,{outputs:0,func:"if(!msg.retain && ['0','1'].includes(msg.payload)) global.set('arduino99Report',{value:msg.payload,at:Date.now()}); return null;"});
 add(lamp,'report','debug','Estado recibido del SONOFF',450,320,{active:true,tosidebar:true,complete:'payload',targetType:'msg'});
 fs.writeFileSync(path.join(__dirname,'demo-arduino-grupo99.json'),JSON.stringify(nodes,null,2)+'\n');
