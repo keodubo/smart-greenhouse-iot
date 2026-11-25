@@ -38,6 +38,11 @@ if (msg.topic) {
   if (value===null && kind!=='nivel') return null;
   data[kind]={value,at:now};
   flow.set('samples',data);
+  const history=flow.get('history') || {};
+  const points=(history[kind] || []).filter(point=>now-point[0]<=300000);
+  points.push([now,value]);
+  history[kind]=points.slice(-600);
+  flow.set('history',history);
 }
 const status={};
 for (const k of ['temperatura','humedad','nivel']) status[k]=data[k] && now-data[k].at<15000 ? data[k].value : null;
@@ -48,7 +53,7 @@ const color=level===null?'off':level<settings.low?'red':level>=settings.clear?'g
 flow.set('waterColor',color);
 const changed=color!==context.get('color');
 context.set('color',color);
-return [changed?{payload:color}:null,msg.topic?{payload:status}:null];`,initialize:"flow.set('samples',{}); flow.set('status',{}); context.set('color',null);"},[['led'],['debug']]);
+return [changed?{payload:color}:null,msg.topic?{payload:status}:null];`,initialize:"flow.set('samples',{}); flow.set('history',{}); flow.set('status',{}); context.set('color',null);"},[['led'],['debug']]);
 add(board,'debug','debug','Datos Arduino',690,150,{active:true,tosidebar:true,complete:'payload',targetType:'msg'});
 add(board,'led','exec','Nivel en matriz LED',700,80,{command:'python3 "$HOME/smart-greenhouse-iot/raspberry-pi/indicador-agua.py"',addpay:'payload',append:'',useSpawn:'false',timer:'5'},[[],['errors'],[]]);
 add(board,'errors','debug','Error del display',950,80,{active:true,tosidebar:true,complete:'payload',targetType:'msg'});
@@ -63,7 +68,7 @@ add(board,'json','function','Valores actuales',400,410,{outputs:1,func:"msg.payl
 add(board,'data-response','http response','Datos',700,410,{});
 add(board,'panel-state','http in','GET /ui/panel',120,490,{method:'get',url:'/ui/panel'},[['snapshot']]);
 add(board,'snapshot','function','Estado del panel',400,490,{outputs:1,func:`
-msg.payload={samples:flow.get('status') || {},water:flow.get('waterColor') || 'off',
+msg.payload={time:Date.now(),history:flow.get('history') || {},samples:flow.get('status') || {},water:flow.get('waterColor') || 'off',
   settings:global.get('arduino99Settings') || ${JSON.stringify(defaults)},
   lamp:global.get('arduino99Lamp') || {},report:global.get('arduino99Report') || null};
 msg.headers={'Cache-Control':'no-store'};
@@ -97,18 +102,18 @@ const fresh=Date.now()-context.get('at')<15000;
 let reply=null;
 let force=false;
 if(msg.req){
-  if(!msg.req.is('application/json')) return [null,respond(415,'Se requiere JSON.')];
+  if(!msg.req.is('application/json')) return [null,respond(415,'Expected a JSON request.')];
   const body=msg.payload || {};
   if(body.action==='settings'){
     const {on,off,low,clear}=body;
     if(![on,off,low,clear].every(Number.isFinite) || off < -40 || on > 100 || off>=on ||
-       low<0 || clear>100 || low>=clear) return [null,respond(400,'Revisá el orden y el rango de los umbrales.')];
+       low<0 || clear>100 || low>=clear) return [null,respond(400,'Check the threshold order and permitted ranges.')];
     settings={on,off,low,clear};global.set('arduino99Settings',settings);
   }else if(['auto','on','off'].includes(body.action)){
-    if(!connected || (body.action==='on' && !fresh)) return [null,respond(409,'Se necesita conexión y, para encender, temperatura vigente.')];
+    if(!connected || (body.action==='on' && !fresh)) return [null,respond(409,'An MQTT connection is required. Switching on also requires a current temperature reading.')];
     mode=body.action;force=mode!=='auto';
-  }else return [null,respond(400,'Acción desconocida.')];
-  reply=respond(200,'Cambio aplicado.');
+  }else return [null,respond(400,'Unknown control action.')];
+  reply=respond(200,'Changes applied.');
 }
 let next=last || '0';
 if(!fresh){next='0';if(mode==='on') mode='auto';}

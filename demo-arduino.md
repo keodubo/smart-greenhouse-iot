@@ -13,6 +13,8 @@ El Arduino publica temperatura, humedad y nivel en los topics `IIoT/grupo99/temp
 
 Abrí `http://127.0.0.1:1880/ui` en la Raspberry. En otra computadora del laboratorio usá la dirección de la Raspberry en lugar de 127.0.0.1. El panel muestra las tres lecturas del Arduino, la alerta de agua, la conexión MQTT, el modo de control, la orden enviada y el último informe recibido del SONOFF con su hora.
 
-- **Encender** y **Apagar** seleccionan el modo manual. Encender requiere conexión y una temperatura vigente. Si pasan 15 segundos sin temperatura válida, se pide OFF y el encendido manual se cancela. **Automático** devuelve el control a la regla de temperatura.
-- En **Configuración** editá los límites de encendido y apagado y los dos límites del nivel de agua. Pulsá **Aplicar umbrales**. Se usan desde ese momento; entre los dos límites se conserva el estado anterior.
+- **Switch on** y **Switch off** seleccionan el modo manual. Encender requiere conexión y una temperatura vigente. Si pasan 15 segundos sin temperatura válida, se pide OFF y el encendido manual se cancela. **Automatic** devuelve el control a la regla de temperatura.
+- En **Control thresholds** editá los límites de encendido y apagado y los dos límites del nivel de agua. Pulsá **Apply thresholds**. Se usan desde ese momento; entre los dos límites se conserva el estado anterior.
 - Con el almacenamiento estándar en memoria los ajustes duran hasta el reinicio de Node-RED. Los valores iniciales son encendido por encima de 25 °C, apagado a 24,5 °C o menos, agua baja por debajo del 20 % y recuperación desde el 25 %.
+
+En **Measurement history** seleccioná temperatura, humedad o nivel para ver las muestras recibidas en los últimos cinco minutos, con su mínimo, máximo y cantidad de observaciones. Un intervalo de 15 segundos sin muestras interrumpe el trazo.
