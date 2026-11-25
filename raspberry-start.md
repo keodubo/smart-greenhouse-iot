@@ -1,5 +1,7 @@
 # Raspberry Pi desde cero: temperatura y humedad en los LEDs
 
+**Para la demo integrada del grupo 99, seguí [Demo del invernadero desde la Raspberry](demo.md).** El generador configura el SONOFF asignado y la ruta del display en un solo archivo importable.
+
 Usá la Raspberry Pi 16 con el Sense HAT. El recorrido es **sensor físico → MQTT → Node-RED → matriz LED**. Seguí los pasos en orden desde el escritorio de la Raspberry.
 
 ## 1. Encender y descargar el proyecto

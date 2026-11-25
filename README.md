@@ -1,5 +1,7 @@
 # Smart Greenhouse IoT
 
+**Para la demo integrada del grupo 99, seguí [Demo del invernadero desde la Raspberry](demo.md).** El generador configura el SONOFF asignado y la ruta del display en un solo archivo importable.
+
 Código para un prototipo de invernadero: Raspberry Pi + Sense HAT, Arduino MKR WiFi 1010 + sensor ultrasónico y una lámpara controlada por SONOFF mediante MQTT y Node-RED.
 
 **Preparado para probar en el laboratorio. El funcionamiento físico todavía no está verificado.**

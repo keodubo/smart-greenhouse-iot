@@ -99,3 +99,20 @@ test('STOP requests OFF, disarms, and ignores retained manual ON', () => {
   const r=run({kind:'stop'});
   assert.equal(r.status.armed,false); assert.equal(r.relay.payload,'0');
 });
+test('shows raw distance before calibration and expires it after 15 seconds', () => {
+  const run=session({calibrationConfirmed:false});
+  const r=run(reading('distancia',12));
+  assert.equal(r.status.distanceCm,12);
+  assert.equal(r.level.valid,false);
+  assert.equal(r.status.lowWater,null);
+  assert.equal(run({kind:'tick'},15000).status.distanceCm,null);
+});
+test('reports live relay messages separately from requests until disconnect', () => {
+  const run=ready();
+  assert.equal(run({kind:'feedback',payload:'1',retain:true}).status.relayReported,null);
+  const r=run({kind:'feedback',payload:'1'});
+  assert.equal(r.status.relayReported,'ON');
+  assert.equal(r.status.requested,'OFF');
+  assert.equal(run({kind:'feedback',payload:'0'}).status.relayReported,'OFF');
+  assert.equal(run({kind:'connection',connected:false}).status.relayReported,null);
+});

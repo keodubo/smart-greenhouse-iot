@@ -42,3 +42,7 @@ Added `mostrar-mqtt.py`, a separate importable MQTT/display flow, numeric-messag
 - No live HiveMQ connection or physical display execution was performed for this addition. The imported display tab stays disabled until the lab topic and script path are configured.
 
 Follow [display-guide.md](display-guide.md) for the physical end-to-end check. Avoid running another LED writer at the same time.
+
+## Integrated demo verification (25 November 2026)
+
+Ran 19 JavaScript and 16 Python unit tests and the C++ distance checks. Compiled the sketch for `arduino:samd:mkrwifi1010`. Started Node-RED 4.1 with the generated demo tabs and an isolated MQTT broker on loopback. Sent example sensor readings and joystick commands over MQTT, observed ON and OFF publications, supplied a relay report and checked STOP. The LED executable ran in text-preview mode. Repeated the flow with example tank references and observed the low-water warning set and clear. The lab still needs to verify this version with the actual sensors, display, lamp and tank.

@@ -32,6 +32,12 @@ function step(state, event, now, config) {
   if (event.kind === 'stop') { reset(); forceOff=true; }
   if (!mappingOK || !controlOK) { s.armed=false; s.mode='AUTO'; s.requested='OFF'; }
 
+  if (event.kind === 'connection' || event.kind === 'feedback') {
+    if (!s.connected) s.relayReported = null;
+    else if (event.kind === 'feedback' && !event.retain && ['0','1'].includes(event.payload)) {
+      s.relayReported = event.payload === '1' ? 'ON' : 'OFF';
+    }
+  }
   const specs = {temperatura:['C',-40,100],humedad:['percent',0,100],distancia:['cm',2,400]};
   if (specs[event.kind] && event.retain !== true) {
     let p = event.payload;
@@ -76,6 +82,7 @@ function step(state, event, now, config) {
   if (!waterOK) faults.push('water-invalid-or-stale');
   return {state:s, relay, level, status:{mode:s.mode,armed:s.armed,connected:s.connected,
     requested:s.requested,actual:'UNKNOWN',temperature:temperatureOK?s.temperatura.value:null,
+    relayReported:s.relayReported || null,distanceCm:fresh('distancia')?s.distancia.value:null,
     humidity:humidityOK?s.humedad.value:null,level:level.value,lowWater:s.lowWater,faults}};
 }
 module.exports = {step};

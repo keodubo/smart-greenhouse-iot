@@ -16,6 +16,8 @@ if (demo && msg.kind === 'reset-demo') {
   event={kind:'arm'};
 } else if (msg.status) {
   event={kind:'connection',connected:msg.status.fill === 'green'};
+} else if (config.feedbackTopic && msg.topic === config.feedbackTopic) {
+  event={kind:'feedback',payload:msg.payload,retain:msg.retain};
 } else if (msg.kind) {
   event=msg;
 } else {
@@ -28,7 +30,7 @@ if (demo && msg.kind === 'reset-demo') {
 const result=module.exports.step(state,event,Date.now(),config);
 context.set('greenhouse',result.state);
 const status={...result.status,simulation:demo};
-node.status({fill:status.armed?'green':'yellow',shape:status.armed?'dot':'ring',text:status.mode+' / requested '+status.requested+' / actual UNKNOWN'});
+node.status({fill:status.armed?'green':'yellow',shape:status.armed?'dot':'ring',text:status.mode+' / requested '+status.requested+' / relé '+(status.relayReported || '?')+(status.lowWater?' / AGUA BAJA':'')});
 const telemetry=(!demo && status.connected) ? [
   {topic:config.prefix+'/nivel',payload:JSON.stringify(result.level),qos:0,retain:false},
   {topic:config.prefix+'/estado',payload:JSON.stringify(status),qos:0,retain:false}
@@ -78,6 +80,9 @@ function buildFlow(config) {
   ['temperatura','humedad','distancia','manual'].forEach((suffix,i)=>add(live,'live-'+suffix,'mqtt in',suffix,180,80+i*55,{
     topic:config.prefix+'/'+suffix,qos:'0',datatype:'utf8',broker,nl:false,rap:true,rh:0,inputs:0
   },[['live-controller']]));
+  if (config.feedbackTopic) add(live,'live-feedback','mqtt in','Estado informado por SONOFF',180,560,{
+    topic:config.feedbackTopic,qos:'0',datatype:'utf8',broker,nl:false,rap:true,rh:0,inputs:0
+  },[['live-controller']]);
   add(live,'live-connection','status','MQTT connection',180,330,{scope:['live-temperatura']},[['live-controller']]);
   inject(live,'live-arm','ARM (then fresh sample)',180,400,{kind:'arm'},'live-controller');
   inject(live,'live-stop','STOP / DISARM',180,450,{kind:'stop'},'live-controller');

@@ -5,4 +5,4 @@
 #define MQTT_HOST "broker.hivemq.com"
 #define MQTT_PORT 1883
 #define MQTT_PREFIX "IIoT/grupo99"
-#define MQTT_CLIENT_ID "greenhouse-CHANGE_ME-arduino"
+#define MQTT_CLIENT_ID "greenhouse-grupo99-mkr"
